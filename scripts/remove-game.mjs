@@ -18,6 +18,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import yaml from 'yaml';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +26,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const GAMES_DIR = path.join(ROOT_DIR, 'public', 'play');
 const DOWNLOADS_DIR = path.join(ROOT_DIR, 'public', 'downloads');
 const THUMBNAILS_DIR = path.join(ROOT_DIR, 'public', 'images', 'games');
-const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.json');
+const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.yaml');
 
 const colors = {
   reset: '\x1b[0m',
@@ -52,8 +53,9 @@ function parseArgs(args) {
 
 function readMetadata() {
   try {
+    if (!fs.existsSync(METADATA_FILE)) return { games: [] };
     const content = fs.readFileSync(METADATA_FILE, 'utf-8');
-    return JSON.parse(content);
+    return yaml.parse(content) || { games: [] };
   } catch (err) {
     error(`Failed to read metadata file: ${err.message}`);
   }
@@ -61,7 +63,7 @@ function readMetadata() {
 
 function writeMetadata(data) {
   try {
-    fs.writeFileSync(METADATA_FILE, JSON.stringify(data, null, 2) + '\n');
+    fs.writeFileSync(METADATA_FILE, yaml.stringify(data, { indent: 2 }) + '\n');
   } catch (err) {
     error(`Failed to write metadata file: ${err.message}`);
   }

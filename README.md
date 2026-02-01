@@ -65,7 +65,7 @@ npm run add-game -- my-game ./my-game.zip --dry-run
 
 ### Removing a game
 
-Removes the game from the portfolio: deletes the extracted files in `public/play/<game-id>/`, the copy in `public/downloads/<game-id>.zip`, the thumbnail, and the entry in `games.json`. **The original zip you used with add-game is never touched.**
+Removes the game from the portfolio: deletes the extracted files in `public/play/<game-id>/`, the copy in `public/downloads/<game-id>.zip`, the thumbnail, and the entry in `games.yaml`. **The original zip you used with add-game is never touched.**
 
 ```bash
 npm run remove-game -- <game-id> [--dry-run]
@@ -129,7 +129,7 @@ lofi-lobby/
 │   │   ├── GameCard.astro
 │   │   └── Layout.astro
 │   ├── data/
-│   │   └── games.json   # Game catalog metadata
+│   │   └── games.yaml   # Game catalog metadata
 │   └── pages/
 │       ├── index.astro  # Portfolio grid
 │       └── games/
@@ -140,25 +140,20 @@ lofi-lobby/
 
 ## Game Metadata
 
-Games are defined in `src/data/games.json`:
+Games are defined in `src/data/games.yaml`:
 
-```json
-{
-  "games": [
-    {
-      "id": "my-game",
-      "name": "My Game",
-      "type": "html",
-      "version": "1.0.0",
-      "description": "A short description of the game.",
-      "thumbnail": "/images/games/my-game.png",
-      "playable": true,
-      "downloadUrl": "/downloads/my-game.zip",
-      "lastUpdated": "2026-02-01",
-      "entryPoint": "index.html"
-    }
-  ]
-}
+```yaml
+games:
+  - id: my-game
+    name: My Game
+    type: html
+    version: "1.0.0"
+    description: A short description of the game.
+    thumbnail: /images/games/my-game.png
+    playable: true
+    downloadUrl: /downloads/my-game.zip
+    lastUpdated: "2026-02-01"
+    entryPoint: index.html
 ```
 
 ### Fields

@@ -1,6 +1,6 @@
 ---
 import Layout from '../../components/Layout.astro';
-import gamesData from '../../data/games.json';
+import { gamesData } from '../../data/load-games.mjs';
 
 export function getStaticPaths() {
   return gamesData.games.map((game) => ({

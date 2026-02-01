@@ -11,11 +11,12 @@
     "add-game": "node scripts/add-game.mjs",
     "remove-game": "node scripts/remove-game.mjs",
     "install:renpy": "node scripts/install-renpy.mjs",
-    "postinstall": "node -e \"const fs=require('fs'); const p='src/data/games.json'; const ex='src/data/games.json.example'; if(!fs.existsSync(p)&&fs.existsSync(ex)) fs.copyFileSync(ex,p);\" && node -e \"if (!process.env.INSTALL_RENPY) process.exit(0); require('child_process').execSync('node scripts/install-renpy.mjs', {stdio:'inherit'})\"",
+    "postinstall": "node scripts/ensure-games-yaml.mjs && node -e \"if (!process.env.INSTALL_RENPY) process.exit(0); require('child_process').execSync('node scripts/install-renpy.mjs', {stdio:'inherit'})\"",
     "test": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "astro": "^5.17.1"
+    "astro": "^5.17.1",
+    "yaml": "^2.6.1"
   }
 }

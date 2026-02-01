@@ -9,13 +9,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { test } from 'node:test';
 import assert from 'node:assert';
+import yaml from 'yaml';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const GAMES_DIR = path.join(ROOT, 'public', 'play');
 const DOWNLOADS_DIR = path.join(ROOT, 'public', 'downloads');
 const THUMBNAILS_DIR = path.join(ROOT, 'public', 'images', 'games');
-const METADATA_FILE = path.join(ROOT, 'src', 'data', 'games.json');
+const METADATA_FILE = path.join(ROOT, 'src', 'data', 'games.yaml');
 const GAME_ID = 'example-game';
 const ZIP_PATH = path.join(ROOT, 'example-game.zip');
 
@@ -41,7 +42,9 @@ function runRemoveGame() {
 }
 
 function readMetadata() {
-  return JSON.parse(fs.readFileSync(METADATA_FILE, 'utf-8'));
+  if (!fs.existsSync(METADATA_FILE)) return { games: [] };
+  const content = fs.readFileSync(METADATA_FILE, 'utf-8');
+  return yaml.parse(content) || { games: [] };
 }
 
 function gameDir() {
@@ -74,7 +77,7 @@ test('add example game then remove it', async () => {
 
   const metaAfterAdd = readMetadata();
   const entry = metaAfterAdd.games.find((g) => g.id === GAME_ID);
-  assert.ok(entry, 'games.json should contain example-game');
+  assert.ok(entry, 'games.yaml should contain example-game');
   assert.strictEqual(entry.entryPoint, 'index.html');
   assert.strictEqual(entry.version, '1.0.0');
 
@@ -86,5 +89,5 @@ test('add example game then remove it', async () => {
 
   const metaAfterRemove = readMetadata();
   const stillThere = metaAfterRemove.games.some((g) => g.id === GAME_ID);
-  assert.ok(!stillThere, 'games.json should no longer contain example-game');
+  assert.ok(!stillThere, 'games.yaml should no longer contain example-game');
 });

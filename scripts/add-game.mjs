@@ -4,7 +4,7 @@
  * add-game.mjs
  * 
  * Adds or updates a game in the portfolio by extracting a zip file or copying
- * a directory, then updating the games.json metadata.
+ * a directory, then updating the games.yaml metadata.
  * 
  * Usage:
  *   npm run add-game -- <game-id> <path-to-zip-or-dir> [--version <version>] [--dry-run]
@@ -23,6 +23,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import AdmZip from 'adm-zip';
 import readline from 'readline';
+import yaml from 'yaml';
 import {
   getSdkRoot,
   getRenpyLauncher,
@@ -40,7 +41,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const GAMES_DIR = path.join(ROOT_DIR, 'public', 'play');
 const DOWNLOADS_DIR = path.join(ROOT_DIR, 'public', 'downloads');
 const THUMBNAILS_DIR = path.join(ROOT_DIR, 'public', 'images', 'games');
-const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.json');
+const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.yaml');
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 const THUMBNAIL_NAME_HINTS = ['thumbnail', 'icon', 'screenshot', 'preview', 'banner', 'cover', 'logo', 'splash', 'poster', 'title', 'keyart'];
@@ -386,8 +387,9 @@ function findThumbnailCandidate(gameDir) {
 
 function readMetadata() {
   try {
+    if (!fs.existsSync(METADATA_FILE)) return { games: [] };
     const content = fs.readFileSync(METADATA_FILE, 'utf-8');
-    return JSON.parse(content);
+    return yaml.parse(content) || { games: [] };
   } catch (err) {
     error(`Failed to read metadata file: ${err.message}`);
   }
@@ -395,7 +397,7 @@ function readMetadata() {
 
 function writeMetadata(data) {
   try {
-    fs.writeFileSync(METADATA_FILE, JSON.stringify(data, null, 2) + '\n');
+    fs.writeFileSync(METADATA_FILE, yaml.stringify(data, { indent: 2 }) + '\n');
   } catch (err) {
     error(`Failed to write metadata file: ${err.message}`);
   }
