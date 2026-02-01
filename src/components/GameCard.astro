@@ -6,9 +6,10 @@ interface Props {
   description: string;
   thumbnail: string;
   playable: boolean;
+  animationDelay?: number;
 }
 
-const { id, name, type, description, thumbnail, playable } = Astro.props;
+const { id, name, type, description, thumbnail, playable, animationDelay = 0 } = Astro.props;
 
 const typeLabels: Record<string, string> = {
   'html': 'HTML',
@@ -20,7 +21,7 @@ const typeLabels: Record<string, string> = {
 const typeLabel = typeLabels[type] || type;
 ---
 
-<a href={`/games/${id}/`} class="game-card">
+<a href={`/games/${id}/`} class="game-card" style={`--card-delay: ${animationDelay}ms`}>
   <div class="thumbnail">
     <img src={thumbnail} alt={`${name} thumbnail`} loading="lazy" />
     <span class={`badge badge-${type}`}>{typeLabel}</span>
@@ -38,19 +39,34 @@ const typeLabel = typeLabels[type] || type;
 </a>
 
 <style>
+  @keyframes card-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   .game-card {
     display: block;
     background-color: var(--color-surface);
     border-radius: var(--border-radius);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     overflow: hidden;
     transition: transform var(--transition), box-shadow var(--transition);
     text-decoration: none;
     color: inherit;
+    animation: card-enter 0.4s ease-out forwards;
+    animation-delay: var(--card-delay, 0ms);
+    opacity: 0;
   }
 
   .game-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 12px 40px rgba(233, 69, 96, 0.12);
     opacity: 1;
   }
 

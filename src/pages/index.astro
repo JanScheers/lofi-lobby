@@ -4,7 +4,6 @@ import GameCard from '../components/GameCard.astro';
 import gamesData from '../data/games.json';
 
 const games = gamesData.games;
-const types = ['all', 'html', 'renpy', 'rpgmaker', 'download-only'];
 ---
 
 <Layout title="Home">
@@ -13,27 +12,11 @@ const types = ['all', 'html', 'renpy', 'rpgmaker', 'download-only'];
     <p>A curated collection of indie games. Browse, play, and download.</p>
   </section>
 
-  <section class="filters" id="filters">
-    <label for="type-filter">Filter by type:</label>
-    <select id="type-filter">
-      <option value="all">All Games</option>
-      <option value="html">HTML</option>
-      <option value="renpy">Ren'Py</option>
-      <option value="rpgmaker">RPG Maker</option>
-      <option value="download-only">Download Only</option>
-    </select>
-    <label for="sort-select">Sort by:</label>
-    <select id="sort-select">
-      <option value="updated">Recently Updated</option>
-      <option value="name">Name (A-Z)</option>
-    </select>
-  </section>
-
   <section class="games-grid" id="games-grid">
     {games.length === 0 ? (
       <p class="no-games">No games available yet. Add some using the update script!</p>
     ) : (
-      games.map((game) => (
+      games.map((game, index) => (
         <GameCard
           id={game.id}
           name={game.name}
@@ -44,96 +27,44 @@ const types = ['all', 'html', 'renpy', 'rpgmaker', 'download-only'];
           data-type={game.type}
           data-name={game.name}
           data-updated={game.lastUpdated}
+          animationDelay={index * 50}
         />
       ))
     )}
   </section>
 </Layout>
 
-<script>
-  const filterSelect = document.getElementById('type-filter') as HTMLSelectElement;
-  const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
-  const grid = document.getElementById('games-grid') as HTMLElement;
-  
-  function filterAndSort() {
-    const cards = Array.from(grid.querySelectorAll('.game-card')) as HTMLElement[];
-    const filterValue = filterSelect.value;
-    const sortValue = sortSelect.value;
-
-    // Filter
-    cards.forEach(card => {
-      const type = card.getAttribute('data-type');
-      if (filterValue === 'all' || type === filterValue) {
-        card.style.display = '';
-      } else {
-        card.style.display = 'none';
-      }
-    });
-
-    // Sort visible cards
-    const visibleCards = cards.filter(card => card.style.display !== 'none');
-    visibleCards.sort((a, b) => {
-      if (sortValue === 'name') {
-        const nameA = a.getAttribute('data-name') || '';
-        const nameB = b.getAttribute('data-name') || '';
-        return nameA.localeCompare(nameB);
-      } else {
-        const dateA = a.getAttribute('data-updated') || '';
-        const dateB = b.getAttribute('data-updated') || '';
-        return dateB.localeCompare(dateA); // newest first
-      }
-    });
-
-    // Reorder in DOM
-    visibleCards.forEach(card => grid.appendChild(card));
+<style>
+  @keyframes hero-enter {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
-  filterSelect.addEventListener('change', filterAndSort);
-  sortSelect.addEventListener('change', filterAndSort);
-</script>
-
-<style>
   .hero {
     text-align: center;
     padding: 2rem 0 3rem;
   }
 
   .hero h1 {
-    font-size: 2.5rem;
+    font-family: var(--font-display);
+    font-size: 2.75rem;
+    font-weight: 700;
     margin-bottom: 0.5rem;
+    color: #fff;
+    animation: hero-enter 0.5s ease-out forwards;
   }
 
   .hero p {
     font-size: 1.125rem;
     color: var(--color-text-muted);
-  }
-
-  .filters {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
-  }
-
-  .filters label {
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
-  }
-
-  .filters select {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    border: 1px solid var(--color-secondary);
-    border-radius: var(--border-radius);
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    cursor: pointer;
-  }
-
-  .filters select:focus {
-    outline: none;
-    border-color: var(--color-primary);
+    animation: hero-enter 0.5s ease-out 0.1s forwards;
+    opacity: 0;
   }
 
   .games-grid {
