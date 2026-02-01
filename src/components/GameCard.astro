@@ -1,4 +1,6 @@
 ---
+import { resolveSiteUrl } from '../utils/url';
+
 interface Props {
   id: string;
   name: string;
@@ -11,7 +13,14 @@ interface Props {
 
 const { id, name, type, description, thumbnail, playable, entryPoint = 'index.html' } = Astro.props;
 
-const cardHref = playable ? `/play/${id}/${entryPoint}` : `/games/${id}/`;
+const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '';
+const currentPath = Astro.url.pathname;
+const thumbnailUrl = resolveSiteUrl(currentPath, thumbnail, base);
+const cardHref = resolveSiteUrl(
+  currentPath,
+  playable ? `/play/${id}/${entryPoint}` : `/games/${id}/`,
+  base
+);
 
 const typeLabels: Record<string, string> = {
   'html': 'HTML',
@@ -25,7 +34,7 @@ const typeLabel = typeLabels[type] || type;
 
 <a href={cardHref} class="game-card">
   <div class="thumbnail">
-    <img src={thumbnail} alt={`${name} thumbnail`} loading="lazy" />
+    <img src={thumbnailUrl} alt={`${name} thumbnail`} loading="lazy" />
     <span class={`badge badge-${type}`}>{typeLabel}</span>
   </div>
   <div class="content">
