@@ -1,12 +1,12 @@
 # Lofi Lobby
 
-A portfolio site for indie games built with [Astro](https://astro.build). Games are browsable in a grid, with playable web builds embedded in iframes and download links for others.
+A portfolio site for indie games built with [Astro](https://astro.build). Games are browsable in a grid; clicking a playable game opens it in the browser, and download links are available for others.
 
 ## Features
 
 - Responsive game portfolio grid with filtering and sorting
-- Game detail pages with embedded iframe for web-playable games
-- Full-screen mode for immersive gameplay
+- Game detail pages with Play and Download actions for web-playable games
+- Direct links to games (no iframe); playable at `/play/<game-id>/<entry>.html`
 - Download links for all games
 - Low-effort game updates via a single script
 
@@ -23,28 +23,54 @@ npm run preview  # Preview production build
 
 ## Adding/Updating Games
 
-```bash
-npm run update-game -- <game-id> <path-to-zip> [--version <version>] [--dry-run]
-```
+### How to add a game
+
+1. **Run the add-game command** from the project root:
+
+   ```bash
+   npm run update-game -- <game-id> <path-to-zip>
+   ```
+
+   - `<game-id>` — URL slug for the game (e.g. `my-game`, `space-shooter`).
+   - `<path-to-zip>` — Path to the game’s zip file (e.g. `./my-game.zip` or `./incoming/space-shooter-v1.0.0.zip`).
+
+2. **Answer the prompts:**
+   - **Version** — Enter a version (e.g. `1.0.0`) if it wasn’t detected from the filename.
+   - **Entry HTML** — If the zip has more than one `.html` file at the root, the script lists them and asks which one is the game’s entry point. Enter the number (e.g. `1`) or the filename (e.g. `index.html`).
+   - **New games only:** name, type (`html` / `renpy` / `rpgmaker` / `download-only`), and description.
+
+3. **Thumbnail:** The script looks for an image inside the zip (e.g. `thumbnail.png`, `screenshot.jpg`, `cover.png`, or any `.png`/`.jpg`/`.webp`/`.gif`) and copies it to `public/images/games/<game-id>.<ext>`. Root-level images and filenames containing “thumbnail”, “screenshot”, “cover”, “banner”, “logo”, etc. are preferred. If none is found, add a 16:9 image manually at `public/images/games/<game-id>.png`.
+
+4. **Build and deploy:** Run `npm run build`, then deploy `dist/`.
+
+**Optional flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--version <version>` | Set version without prompting (e.g. `--version 1.2.0`). |
+| `--dry-run` | Show what would happen without writing files or metadata. |
 
 **Examples:**
 
 ```bash
+# Add or update a game (prompts for version and entry HTML if needed)
 npm run update-game -- my-game ./incoming/my-game-v1.0.0.zip
-npm run update-game -- my-game ./incoming/my-game.zip --version 1.2.0
-npm run update-game -- my-game ./incoming/my-game.zip --dry-run
+
+# Set version on the command line
+npm run update-game -- my-game ./my-game.zip --version 1.2.0
+
+# Preview changes only
+npm run update-game -- my-game ./my-game.zip --dry-run
 ```
 
-**Zip structure:** Either `index.html` at the root, or one folder containing `index.html` (flattened automatically).
-
-**After updating:** Add a thumbnail at `public/images/games/<game-id>.png` (16:9 recommended), then `npm run build` and deploy `dist/`.
+**Zip structure:** Any zip is accepted. The script unpacks to `public/play/<game-id>/`. If the zip has a single top-level folder, its contents are flattened into that directory. You choose which root-level HTML file is the game entry when prompted.
 
 ## Project Structure
 
 ```
 lofi-lobby/
 ├── public/
-│   ├── games/<id>/      # Extracted web builds (gitignored)
+│   ├── play/<id>/       # Extracted web builds (gitignored)
 │   ├── downloads/       # Game zips for download (gitignored)
 │   └── images/games/    # Game thumbnails
 ├── scripts/
@@ -79,7 +105,8 @@ Games are defined in `src/data/games.json`:
       "thumbnail": "/images/games/my-game.png",
       "playable": true,
       "downloadUrl": "/downloads/my-game.zip",
-      "lastUpdated": "2026-02-01"
+      "lastUpdated": "2026-02-01",
+      "entryPoint": "index.html"
     }
   ]
 }
@@ -98,6 +125,7 @@ Games are defined in `src/data/games.json`:
 | `playable` | boolean | `true` if web-playable, `false` for download-only |
 | `downloadUrl` | string | Path to download zip (or external URL) |
 | `lastUpdated` | string | ISO date of last update |
+| `entryPoint` | string | Root-level HTML file used as the game entry (e.g. `index.html`). Set by the update-game script. |
 
 ## License
 

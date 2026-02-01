@@ -25,6 +25,7 @@ pnpm-debug.log*
 
 # Game files (large, stored on server only)
 public/games/
+public/play/
 public/downloads/
 
 # Incoming game zips (temporary)

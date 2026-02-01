@@ -1,15 +1,16 @@
 {
   "games": [
     {
-      "id": "example-game",
-      "name": "Example Game",
+      "id": "dol",
+      "name": "Degrees of Lewdity",
       "type": "html",
-      "version": "1.0.0",
-      "description": "An example HTML game to demonstrate the portfolio.",
-      "thumbnail": "/images/games/example-game.png",
+      "version": "0.5.7.9",
+      "description": "You play an 18-year-old in a town full of people with lewd intentions. Go to school and find honest work, turn to a life of crime, or sell your body in more carnal ways.",
+      "thumbnail": "/images/games/dol.png",
       "playable": true,
-      "downloadUrl": null,
-      "lastUpdated": "2026-02-01"
+      "downloadUrl": "/downloads/dol.zip",
+      "lastUpdated": "2026-02-01",
+      "entryPoint": "Degrees of Lewdity 0.5.7.9.html"
     }
   ]
 }

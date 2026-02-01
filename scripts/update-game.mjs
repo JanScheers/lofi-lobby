@@ -24,9 +24,13 @@ import readline from 'readline';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
-const GAMES_DIR = path.join(ROOT_DIR, 'public', 'games');
+const GAMES_DIR = path.join(ROOT_DIR, 'public', 'play');
 const DOWNLOADS_DIR = path.join(ROOT_DIR, 'public', 'downloads');
+const THUMBNAILS_DIR = path.join(ROOT_DIR, 'public', 'images', 'games');
 const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.json');
+
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
+const THUMBNAIL_NAME_HINTS = ['thumbnail', 'icon', 'screenshot', 'preview', 'banner', 'cover', 'logo', 'splash', 'poster', 'title', 'keyart'];
 
 // ANSI colors for output
 const colors = {
@@ -91,33 +95,73 @@ function extractVersionFromFilename(filename) {
   return null;
 }
 
-function validateZipStructure(zip) {
+/**
+ * Determine how to unpack the zip: flatten from a single root folder, or extract all.
+ * Accepts any zip structure.
+ */
+function getUnpackStructure(zip) {
   const entries = zip.getEntries();
-  
-  // Check for index.html at root
-  const rootIndex = entries.find(e => e.entryName === 'index.html');
-  if (rootIndex) {
-    return { valid: true, flatten: false };
-  }
-
-  // Check for single root folder containing index.html
-  const folders = new Set();
-  entries.forEach(e => {
-    const parts = e.entryName.split('/');
-    if (parts.length > 1 && parts[0]) {
-      folders.add(parts[0]);
-    }
-  });
-
-  if (folders.size === 1) {
-    const rootFolder = [...folders][0];
-    const nestedIndex = entries.find(e => e.entryName === `${rootFolder}/index.html`);
-    if (nestedIndex) {
-      return { valid: true, flatten: true, rootFolder };
+  const topLevel = new Set();
+  for (const e of entries) {
+    const parts = e.entryName.split('/').filter(Boolean);
+    if (parts.length > 0) {
+      topLevel.add(parts[0]);
     }
   }
+  if (topLevel.size === 1) {
+    const rootFolder = [...topLevel][0];
+    return { flatten: true, rootFolder };
+  }
+  return { flatten: false };
+}
 
-  return { valid: false };
+function getRootHtmlFiles(gameDir) {
+  if (!fs.existsSync(gameDir)) return [];
+  return fs.readdirSync(gameDir, { withFileTypes: true })
+    .filter(d => d.isFile() && d.name.toLowerCase().endsWith('.html'))
+    .map(d => d.name)
+    .sort();
+}
+
+/**
+ * Find image files under dir (recursive). Prefer root-level; prefer names suggesting thumbnail/splash.
+ * Returns { filePath, ext } for the best candidate, or null if none.
+ */
+function findThumbnailCandidate(gameDir) {
+  const candidates = [];
+  function walk(dir, isRoot = true) {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      const fullPath = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        walk(fullPath, false);
+      } else if (e.isFile()) {
+        const ext = path.extname(e.name).toLowerCase();
+        if (IMAGE_EXTENSIONS.has(ext)) {
+          const relativePath = path.relative(gameDir, fullPath);
+          const baseName = path.basename(e.name, ext).toLowerCase();
+          let score = 0;
+          if (isRoot) score += 100;
+          for (const hint of THUMBNAIL_NAME_HINTS) {
+            if (baseName.includes(hint)) {
+              score += 50 - THUMBNAIL_NAME_HINTS.indexOf(hint);
+              break;
+            }
+          }
+          try {
+            const stat = fs.statSync(fullPath);
+            if (stat.size > 1000) score += 10;
+            candidates.push({ filePath: fullPath, ext, score, size: stat.size });
+          } catch (_) {}
+        }
+      }
+    }
+  }
+  walk(gameDir);
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.score - a.score || b.size - a.size);
+  return { filePath: candidates[0].filePath, ext: candidates[0].ext };
 }
 
 function readMetadata() {
@@ -188,12 +232,8 @@ async function main() {
     error(`Failed to open zip file: ${err.message}`);
   }
 
-  const validation = validateZipStructure(zip);
-  if (!validation.valid) {
-    error('Invalid zip structure. The zip must contain index.html at the root OR have a single folder containing index.html.');
-  }
-
-  log(`Zip structure: ${validation.flatten ? `Single folder "${validation.rootFolder}" (will flatten)` : 'Root level'}`, 'green');
+  const unpackStructure = getUnpackStructure(zip);
+  log(`Zip structure: ${unpackStructure.flatten ? `Single folder "${unpackStructure.rootFolder}" (will flatten)` : 'Root level'}`, 'green');
 
   // Determine version
   let finalVersion = version;
@@ -233,8 +273,10 @@ async function main() {
     log('Would perform the following actions:', 'yellow');
     log(`  - ${isNewGame ? 'Create' : 'Clear and recreate'} directory: ${gameDir}`);
     log(`  - Extract ${zip.getEntries().length} files from zip`);
+    log(`  - Prompt for which root HTML file is the game entry point`);
+    log(`  - Try to copy an image from zip to public/images/games/ as thumbnail`);
     log(`  - Copy zip to: ${path.join(DOWNLOADS_DIR, `${gameId}.zip`)}`);
-    log(`  - Update metadata with version ${finalVersion}`);
+    log(`  - Update metadata with version ${finalVersion} and entryPoint`);
     log('');
     log('Dry run complete. No changes were made.', 'green');
     return;
@@ -249,12 +291,11 @@ async function main() {
 
   // Extract zip
   try {
-    if (validation.flatten && validation.rootFolder) {
-      // Extract only contents of the root folder
+    if (unpackStructure.flatten && unpackStructure.rootFolder) {
       const entries = zip.getEntries();
       for (const entry of entries) {
-        if (entry.entryName.startsWith(`${validation.rootFolder}/`)) {
-          const relativePath = entry.entryName.slice(validation.rootFolder.length + 1);
+        if (entry.entryName.startsWith(`${unpackStructure.rootFolder}/`)) {
+          const relativePath = entry.entryName.slice(unpackStructure.rootFolder.length + 1);
           if (relativePath) {
             const targetPath = path.join(gameDir, relativePath);
             if (entry.isDirectory) {
@@ -276,6 +317,46 @@ async function main() {
       fs.rmSync(gameDir, { recursive: true });
     }
     error(`Failed to extract zip: ${err.message}`);
+  }
+
+  const rootHtmlFiles = getRootHtmlFiles(gameDir);
+  if (rootHtmlFiles.length === 0) {
+    if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+    error('No HTML files found at the root of the extracted game. Add at least one .html file at the root of the zip.');
+  }
+
+  let entryPoint;
+  if (rootHtmlFiles.length === 1) {
+    entryPoint = rootHtmlFiles[0];
+    log(`Using sole root HTML as entry: ${entryPoint}`, 'green');
+  } else {
+    log('', 'reset');
+    log('Which HTML file at the root should be the game entry point?', 'cyan');
+    rootHtmlFiles.forEach((name, i) => log(`  ${i + 1}. ${name}`));
+    const raw = await prompt(`Enter number (1-${rootHtmlFiles.length}) or filename: `);
+    const num = parseInt(raw, 10);
+    if (Number.isInteger(num) && num >= 1 && num <= rootHtmlFiles.length) {
+      entryPoint = rootHtmlFiles[num - 1];
+    } else if (rootHtmlFiles.includes(raw)) {
+      entryPoint = raw;
+    } else {
+      entryPoint = rootHtmlFiles[0];
+      log(`Using first option: ${entryPoint}`, 'yellow');
+    }
+    log(`Entry point: ${entryPoint}`, 'green');
+  }
+
+  // Try to extract a thumbnail from the zip contents
+  let thumbnailPath = `/images/games/${gameId}.png`;
+  const thumbnailCandidate = findThumbnailCandidate(gameDir);
+  if (thumbnailCandidate) {
+    fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
+    const destPath = path.join(THUMBNAILS_DIR, `${gameId}${thumbnailCandidate.ext}`);
+    fs.copyFileSync(thumbnailCandidate.filePath, destPath);
+    thumbnailPath = `/images/games/${gameId}${thumbnailCandidate.ext}`;
+    log(`Thumbnail copied from zip: ${path.basename(thumbnailCandidate.filePath)} → public/images/games/${gameId}${thumbnailCandidate.ext}`, 'green');
+  } else {
+    log('No image found in zip for thumbnail. Add one manually to public/images/games/' + gameId + '.png', 'yellow');
   }
 
   // Copy zip to downloads
@@ -302,10 +383,11 @@ async function main() {
       type,
       version: finalVersion,
       description,
-      thumbnail: `/images/games/${gameId}.png`,
+      thumbnail: thumbnailPath,
       playable: type !== 'download-only',
       downloadUrl: `/downloads/${gameId}.zip`,
       lastUpdated: today,
+      entryPoint,
     };
 
     metadata.games.push(newGame);
@@ -315,6 +397,10 @@ async function main() {
     metadata.games[existingGameIndex].version = finalVersion;
     metadata.games[existingGameIndex].lastUpdated = today;
     metadata.games[existingGameIndex].downloadUrl = `/downloads/${gameId}.zip`;
+    metadata.games[existingGameIndex].entryPoint = entryPoint;
+    if (thumbnailCandidate) {
+      metadata.games[existingGameIndex].thumbnail = thumbnailPath;
+    }
     log(`Updated game metadata`, 'green');
   }
 
@@ -327,9 +413,12 @@ async function main() {
   log('========================================', 'green');
   log('');
   log('Next steps:', 'cyan');
-  log('  1. Add a thumbnail image to: public/images/games/' + gameId + '.png');
-  log('  2. Run "npm run build" to rebuild the site');
-  log('  3. Deploy the updated site');
+  if (!thumbnailCandidate) {
+    log('  1. Add a thumbnail image to: public/images/games/' + gameId + '.png');
+  }
+  log('  ' + (thumbnailCandidate ? '1' : '2') + '. Game is playable at: /play/' + gameId + '/' + (metadata.games.find(g => g.id === gameId)?.entryPoint ?? entryPoint));
+  log('  ' + (thumbnailCandidate ? '2' : '3') + '. Run "npm run build" to rebuild the site');
+  log('  ' + (thumbnailCandidate ? '3' : '4') + '. Deploy the updated site');
 }
 
 main().catch((err) => {

@@ -6,10 +6,12 @@ interface Props {
   description: string;
   thumbnail: string;
   playable: boolean;
-  animationDelay?: number;
+  entryPoint?: string;
 }
 
-const { id, name, type, description, thumbnail, playable, animationDelay = 0 } = Astro.props;
+const { id, name, type, description, thumbnail, playable, entryPoint = 'index.html' } = Astro.props;
+
+const cardHref = playable ? `/play/${id}/${entryPoint}` : `/games/${id}/`;
 
 const typeLabels: Record<string, string> = {
   'html': 'HTML',
@@ -21,7 +23,7 @@ const typeLabels: Record<string, string> = {
 const typeLabel = typeLabels[type] || type;
 ---
 
-<a href={`/games/${id}/`} class="game-card" style={`--card-delay: ${animationDelay}ms`}>
+<a href={cardHref} class="game-card">
   <div class="thumbnail">
     <img src={thumbnail} alt={`${name} thumbnail`} loading="lazy" />
     <span class={`badge badge-${type}`}>{typeLabel}</span>
@@ -60,7 +62,6 @@ const typeLabel = typeLabels[type] || type;
     text-decoration: none;
     color: inherit;
     animation: card-enter 0.4s ease-out forwards;
-    animation-delay: var(--card-delay, 0ms);
     opacity: 0;
   }
 
