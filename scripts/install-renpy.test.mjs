@@ -64,6 +64,22 @@ function getRenpyLauncher(sdkRoot) {
       return null;
     }
   }
+  if (platform === 'darwin') {
+    // Prefer renpy.app binary on macOS: DMG install uses it; renpy.sh often fails (lib/py3-mac-universal or exec)
+    const appRenpy = path.join(sdkRoot, 'renpy.app', 'Contents', 'MacOS', 'renpy');
+    try {
+      fs.accessSync(appRenpy);
+      return appRenpy;
+    } catch {
+      const sh = path.join(sdkRoot, 'renpy.sh');
+      try {
+        fs.accessSync(sh);
+        return sh;
+      } catch {
+        return null;
+      }
+    }
+  }
   const sh = path.join(sdkRoot, 'renpy.sh');
   try {
     fs.accessSync(sh);
@@ -71,6 +87,14 @@ function getRenpyLauncher(sdkRoot) {
   } catch {
     return null;
   }
+}
+
+/** Working directory when invoking the launcher (Mac app must run from its MacOS dir). */
+function getRenpyCwd(sdkRoot, launcher) {
+  if (process.platform === 'darwin' && launcher?.includes('renpy.app')) {
+    return path.dirname(launcher);
+  }
+  return sdkRoot;
 }
 
 test("Ren'Py SDK and The Question (when SDK installed)", (t) => {
@@ -86,7 +110,7 @@ test("Ren'Py SDK and The Question (when SDK installed)", (t) => {
   assert.ok(fs.existsSync(scriptRpy), 'game/script.rpy should exist in The Question');
 
   const launcher = getRenpyLauncher(sdkRoot);
-  assert.ok(launcher, 'renpy.sh (or renpy.exe on Windows) should exist in SDK');
+  assert.ok(launcher, 'renpy.sh, renpy.exe, or renpy.app (macOS) should exist in SDK');
 });
 
 test("Ren'Py web build of The Question (when SDK and web installed)", (t) => {
@@ -114,11 +138,14 @@ test("Ren'Py web build of The Question (when SDK and web installed)", (t) => {
   }
 
   const projectParent = path.dirname(theQuestion);
-  const distBase = path.join(projectParent, 'the_question-dists');
+  const projectBaseName = path.basename(theQuestion).replace(/\s+/g, '_').toLowerCase();
 
+  // Run launcher (SDK root) so "distribute" command is available; then distribute --package web <project>
+  const cwd = getRenpyCwd(sdkRoot, launcher);
+  const args = [sdkRoot, 'distribute', '--package', 'web', theQuestion].map((a) => `"${a}"`).join(' ');
   try {
-    execSync(`"${launcher}" "${theQuestion}" distribute web`, {
-      cwd: sdkRoot,
+    execSync(`"${launcher}" ${args}`, {
+      cwd,
       encoding: 'utf-8',
       stdio: 'pipe',
       timeout: 300_000,
@@ -128,13 +155,22 @@ test("Ren'Py web build of The Question (when SDK and web installed)", (t) => {
     return;
   }
 
-  if (!fs.existsSync(distBase)) {
-    assert.fail(`Web build output base should exist: ${distBase}`);
-  }
+  // Ren'Py puts output in <directory_name>-dists; directory_name is build.name + '-' + version (e.g. the_question-7.0)
+  const parentEntries = fs.readdirSync(projectParent);
+  const distBaseDir = parentEntries.find((e) => e.endsWith('-dists') && e.toLowerCase().startsWith(projectBaseName));
+  assert.ok(distBaseDir, `Web build output directory (*-dists) should exist under ${projectParent}, found: ${parentEntries.join(', ')}`);
+  const distBase = path.join(projectParent, distBaseDir);
   const entries = fs.readdirSync(distBase);
-  const webDir = entries.find((e) => e.includes('web'));
-  assert.ok(webDir, `Web build directory should exist under ${distBase}`);
-  const distDir = path.join(distBase, webDir);
-  const indexHtml = path.join(distDir, 'index.html');
-  assert.ok(fs.existsSync(indexHtml), `index.html should exist in web build: ${indexHtml}`);
+  const webEntry = entries.find((e) => e.includes('web'));
+  assert.ok(webEntry, `Web build output (directory or .zip) should exist under ${distBase}`);
+  const webPath = path.join(distBase, webEntry);
+  const stat = fs.statSync(webPath);
+  if (stat.isDirectory()) {
+    const indexHtml = path.join(webPath, 'index.html');
+    assert.ok(fs.existsSync(indexHtml), `index.html should exist in web build: ${indexHtml}`);
+  } else if (webEntry.endsWith('.zip')) {
+    assert.ok(stat.size > 0, `Web zip should be non-empty: ${webPath}`);
+  } else {
+    assert.fail(`Unexpected web build output: ${webPath}`);
+  }
 });
