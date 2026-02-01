@@ -26,7 +26,6 @@ pnpm-debug.log*
 # Game files (large, stored on server only)
 public/games/
 public/play/
-public/downloads/
 
 # Unpacked game images (extracted from game zips)
 public/images/

@@ -14,7 +14,6 @@ import yaml from 'yaml';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const GAMES_DIR = path.join(ROOT, 'public', 'play');
-const DOWNLOADS_DIR = path.join(ROOT, 'public', 'downloads');
 const THUMBNAILS_DIR = path.join(ROOT, 'public', 'images', 'games');
 const METADATA_FILE = path.join(ROOT, 'src', 'data', 'games.yaml');
 const GAME_ID = 'example-game';
@@ -51,10 +50,6 @@ function gameDir() {
   return path.join(GAMES_DIR, GAME_ID);
 }
 
-function downloadZip() {
-  return path.join(DOWNLOADS_DIR, `${GAME_ID}.zip`);
-}
-
 test('add example game then remove it', async () => {
   // Ensure clean state: remove if already present from a previous failed run
   const metaBefore = readMetadata();
@@ -70,7 +65,6 @@ test('add example game then remove it', async () => {
     fs.existsSync(path.join(gameDir(), 'index.html')),
     'index.html should exist in game dir'
   );
-  assert.ok(fs.existsSync(downloadZip()), 'public/downloads/example-game.zip should exist');
 
   const thumbPath = path.join(THUMBNAILS_DIR, `${GAME_ID}.png`);
   assert.ok(fs.existsSync(thumbPath), 'thumbnail public/images/games/example-game.png should exist');
@@ -84,7 +78,6 @@ test('add example game then remove it', async () => {
   runRemoveGame();
 
   assert.ok(!fs.existsSync(gameDir()), 'public/play/example-game/ should be removed');
-  assert.ok(!fs.existsSync(downloadZip()), 'public/downloads/example-game.zip should be removed');
   assert.ok(!fs.existsSync(thumbPath), 'thumbnail should be removed');
 
   const metaAfterRemove = readMetadata();

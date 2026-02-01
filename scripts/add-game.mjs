@@ -39,7 +39,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 const GAMES_DIR = path.join(ROOT_DIR, 'public', 'play');
-const DOWNLOADS_DIR = path.join(ROOT_DIR, 'public', 'downloads');
 const THUMBNAILS_DIR = path.join(ROOT_DIR, 'public', 'images', 'games');
 const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.yaml');
 
@@ -148,16 +147,6 @@ function dirWouldYieldRenpyDistribution(dirPath, unpackStructure) {
   const gameDir = path.join(root, 'game');
   if (!fs.existsSync(gameDir) || !fs.statSync(gameDir).isDirectory()) return false;
   return dirContainsRpyc(gameDir) && !dirContainsRpy(gameDir);
-}
-
-/**
- * Create a zip file from a directory (one root folder inside the zip).
- */
-function zipFromDir(sourceDir, destZipPath) {
-  const zip = new AdmZip();
-  zip.addLocalFolder(sourceDir, path.basename(sourceDir));
-  fs.mkdirSync(path.dirname(destZipPath), { recursive: true });
-  zip.writeZip(destZipPath);
 }
 
 /**
@@ -447,7 +436,7 @@ async function main() {
   log(`Source: ${absoluteSourcePath} (${isSourceDir ? 'directory' : 'zip'})`, 'cyan');
 
   let unpackStructure;
-  let sourceDirForCopy = null; // set when isSourceDir: the folder we copy from (and later zip for downloads)
+  let sourceDirForCopy = null; // set when isSourceDir: the folder we copy from
 
   if (isSourceDir) {
     unpackStructure = getUnpackStructureFromDir(absoluteSourcePath);
@@ -521,7 +510,6 @@ async function main() {
     }
     log(`  - Prompt for which root HTML file is the game entry point`);
     log(`  - Try to copy an image to public/images/games/ as thumbnail`);
-    log(`  - ${isSourceDir ? 'Create zip from directory and save to' : 'Copy zip to'}: ${path.join(DOWNLOADS_DIR, `${gameId}.zip`)}`);
     log(`  - Update metadata with version ${finalVersion} and entryPoint`);
     log('');
     log('Dry run complete. No changes were made.', 'green');
@@ -707,17 +695,6 @@ async function main() {
     log('No image found in zip for thumbnail. Add one manually to public/images/games/' + gameId + '.png', 'yellow');
   }
 
-  // Copy or create zip for downloads
-  fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
-  const downloadPath = path.join(DOWNLOADS_DIR, `${gameId}.zip`);
-  if (isSourceDir) {
-    zipFromDir(sourceDirForCopy, downloadPath);
-    log(`Created zip for downloads: ${downloadPath}`, 'green');
-  } else {
-    fs.copyFileSync(absoluteSourcePath, downloadPath);
-    log(`Copied zip to: ${downloadPath}`, 'green');
-  }
-
   // Update metadata
   const today = new Date().toISOString().split('T')[0];
   
@@ -746,7 +723,6 @@ async function main() {
       description,
       thumbnail: thumbnailPath,
       playable: type !== 'download-only',
-      downloadUrl: `/downloads/${gameId}.zip`,
       lastUpdated: today,
       entryPoint,
     };
@@ -757,7 +733,6 @@ async function main() {
     // Update existing game
     metadata.games[existingGameIndex].version = finalVersion;
     metadata.games[existingGameIndex].lastUpdated = today;
-    metadata.games[existingGameIndex].downloadUrl = `/downloads/${gameId}.zip`;
     metadata.games[existingGameIndex].entryPoint = entryPoint;
     if (thumbnailCandidate) {
       metadata.games[existingGameIndex].thumbnail = thumbnailPath;

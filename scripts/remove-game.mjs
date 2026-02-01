@@ -3,9 +3,9 @@
 /**
  * remove-game.mjs
  *
- * Removes a game from the portfolio: deletes extracted files, the download
- * copy in public/downloads/, the thumbnail, and the metadata entry. The
- * original zip file you used with add-game is never touched.
+ * Removes a game from the portfolio: deletes extracted files in public/play/,
+ * the thumbnail, and the metadata entry. The original zip you used with
+ * add-game is never touched.
  *
  * Usage:
  *   npm run remove-game -- <game-id> [--dry-run]
@@ -24,7 +24,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 const GAMES_DIR = path.join(ROOT_DIR, 'public', 'play');
-const DOWNLOADS_DIR = path.join(ROOT_DIR, 'public', 'downloads');
 const THUMBNAILS_DIR = path.join(ROOT_DIR, 'public', 'images', 'games');
 const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.yaml');
 
@@ -97,7 +96,6 @@ function main() {
   log(`Removing game: ${game.name} (${gameId})`, 'cyan');
 
   const gameDir = path.join(GAMES_DIR, gameId);
-  const downloadZip = path.join(DOWNLOADS_DIR, `${gameId}.zip`);
   const thumbnailPath = game.thumbnail
     ? path.join(ROOT_DIR, 'public', game.thumbnail.replace(/^\//, ''))
     : path.join(THUMBNAILS_DIR, `${gameId}.png`);
@@ -106,7 +104,6 @@ function main() {
     log('', 'reset');
     log('Would remove:', 'yellow');
     if (fs.existsSync(gameDir)) log(`  - ${gameDir}`);
-    if (fs.existsSync(downloadZip)) log(`  - ${downloadZip}`);
     if (fs.existsSync(thumbnailPath)) log(`  - ${thumbnailPath}`);
     log(`  - metadata entry for "${gameId}"`);
     log('');
@@ -117,10 +114,6 @@ function main() {
   if (fs.existsSync(gameDir)) {
     fs.rmSync(gameDir, { recursive: true });
     log(`Removed: ${gameDir}`, 'green');
-  }
-  if (fs.existsSync(downloadZip)) {
-    fs.unlinkSync(downloadZip);
-    log(`Removed: ${downloadZip}`, 'green');
   }
   if (fs.existsSync(thumbnailPath)) {
     fs.unlinkSync(thumbnailPath);

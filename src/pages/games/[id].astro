@@ -18,7 +18,6 @@ interface Game {
   description: string;
   thumbnail: string;
   playable: boolean;
-  downloadUrl: string | null;
   lastUpdated: string;
   entryPoint?: string;
 }
@@ -41,9 +40,6 @@ const playUrl = resolveSiteUrl(
   base
 );
 const thumbnailUrl = resolveSiteUrl(currentPath, game.thumbnail, base);
-const downloadUrlResolved = game.downloadUrl
-  ? resolveSiteUrl(currentPath, game.downloadUrl, base)
-  : null;
 const homeHref = resolveSiteUrl(currentPath, '/', base);
 ---
 
@@ -76,16 +72,6 @@ const homeHref = resolveSiteUrl(currentPath, '/', base);
             </svg>
             Play Game
           </a>
-          {downloadUrlResolved && (
-            <a href={downloadUrlResolved} class="btn btn-secondary" download>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              Download
-            </a>
-          )}
         </div>
       </div>
     ) : (
@@ -94,18 +80,7 @@ const homeHref = resolveSiteUrl(currentPath, '/', base);
           <img src={thumbnailUrl} alt={`${game.name} thumbnail`} class="download-thumbnail" />
           <div class="download-content">
             <p>This game is available for download only.</p>
-            {downloadUrlResolved ? (
-              <a href={downloadUrlResolved} class="btn btn-primary btn-large" download>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                Download Game
-              </a>
-            ) : (
-              <p class="no-download">Download not available yet.</p>
-            )}
+            <p class="no-download">Download not available.</p>
           </div>
         </div>
       </div>

@@ -11,7 +11,6 @@
  *   - dist/ (Astro build output)
  *   - .astro/ (Astro cache)
  *   - public/play/ (extracted games)
- *   - public/downloads/ (game zip copies)
  *   - public/images/ (game thumbnails)
  *   - src/data/games.yaml → reset to games: []
  *   - vendor/renpy/ (Ren'Py SDK, if present)
@@ -34,7 +33,6 @@ const PATHS_TO_REMOVE = [
   path.join(ROOT_DIR, 'dist'),
   path.join(ROOT_DIR, '.astro'),
   path.join(ROOT_DIR, 'public', 'play'),
-  path.join(ROOT_DIR, 'public', 'downloads'),
   path.join(ROOT_DIR, 'public', 'images'),
   path.join(ROOT_DIR, 'vendor', 'renpy'),
 ];

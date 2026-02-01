@@ -65,7 +65,7 @@ npm run add-game -- my-game ./my-game.zip --dry-run
 
 ### Removing a game
 
-Removes the game from the portfolio: deletes the extracted files in `public/play/<game-id>/`, the copy in `public/downloads/<game-id>.zip`, the thumbnail, and the entry in `games.yaml`. **The original zip you used with add-game is never touched.**
+Removes the game from the portfolio: deletes the extracted files in `public/play/<game-id>/`, the thumbnail, and the entry in `games.yaml`. **The original zip you used with add-game is never touched.**
 
 ```bash
 npm run remove-game -- <game-id> [--dry-run]
@@ -114,7 +114,6 @@ When the SDK is installed, `npm run test` runs additional tests that verify the 
 lofi-lobby/
 ├── public/
 │   ├── play/<id>/       # Extracted web builds (gitignored)
-│   ├── downloads/       # Game zips for download (gitignored)
 │   └── images/games/    # Game thumbnails
 ├── vendor/
 │   └── renpy/          # Ren'Py SDK (optional, gitignored; npm run install:renpy)
@@ -151,7 +150,6 @@ games:
     description: A short description of the game.
     thumbnail: /images/games/my-game.png
     playable: true
-    downloadUrl: /downloads/my-game.zip
     lastUpdated: "2026-02-01"
     entryPoint: index.html
 ```
@@ -167,7 +165,6 @@ games:
 | `description` | string | Short description for cards |
 | `thumbnail` | string | Path to thumbnail image |
 | `playable` | boolean | `true` if web-playable, `false` for download-only |
-| `downloadUrl` | string | Path to download zip (or external URL) |
 | `lastUpdated` | string | ISO date of last update |
 | `entryPoint` | string | Root-level HTML file used as the game entry (e.g. `index.html`). Set by the add-game script. |
 
