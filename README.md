@@ -63,6 +63,21 @@ npm run update-game -- my-game ./my-game.zip --version 1.2.0
 npm run update-game -- my-game ./my-game.zip --dry-run
 ```
 
+### Removing a game
+
+Removes the game from the portfolio: deletes the extracted files in `public/play/<game-id>/`, the copy in `public/downloads/<game-id>.zip`, the thumbnail, and the entry in `games.json`. **The original zip you used with update-game is never touched.**
+
+```bash
+npm run remove-game -- <game-id> [--dry-run]
+```
+
+Examples:
+
+```bash
+npm run remove-game -- my-game
+npm run remove-game -- my-game --dry-run
+```
+
 **Zip structure:** Any zip is accepted. The script unpacks to `public/play/<game-id>/`. If the zip has a single top-level folder, its contents are flattened into that directory. You choose which root-level HTML file is the game entry when prompted.
 
 ## Project Structure
@@ -74,7 +89,8 @@ lofi-lobby/
 │   ├── downloads/       # Game zips for download (gitignored)
 │   └── images/games/    # Game thumbnails
 ├── scripts/
-│   └── update-game.mjs  # Game update script
+│   ├── update-game.mjs  # Add/update game from zip
+│   └── remove-game.mjs  # Remove game (keeps original zip)
 ├── src/
 │   ├── components/
 │   │   ├── GameCard.astro
