@@ -33,3 +33,6 @@ public/images/
 
 # Incoming game zips (temporary)
 incoming/
+
+# Ren'Py SDK (optional, installed via npm run install:renpy)
+vendor/renpy/

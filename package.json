@@ -9,7 +9,9 @@
     "astro": "astro",
     "update-game": "node scripts/update-game.mjs",
     "remove-game": "node scripts/remove-game.mjs",
-    "test": "node --test scripts/game-add-remove.test.mjs"
+    "install:renpy": "node scripts/install-renpy.mjs",
+    "postinstall": "node -e \"if (!process.env.INSTALL_RENPY) process.exit(0); require('child_process').execSync('node scripts/install-renpy.mjs', {stdio:'inherit'})\"",
+    "test": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",

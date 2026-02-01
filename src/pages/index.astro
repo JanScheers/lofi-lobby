@@ -15,35 +15,22 @@ const games = gamesData.games;
     {games.length === 0 ? (
       <p class="no-games">No games available yet. Add some using the update script!</p>
     ) : (
-      <div class="games-strip-wrapper">
-          <button type="button" class="strip-nav strip-prev" aria-label="Previous game">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          </button>
-          <div class="games-strip" id="games-strip" tabindex="0">
-            {games.map((game, index) => (
-              <div
-                class:list={['card-slot', index === 0 && 'is-center', index > 0 && 'is-right']}
-                data-index={index}
-              >
-                <GameCard
-                  id={game.id}
-                  name={game.name}
-                  type={game.type as 'html' | 'renpy' | 'rpgmaker' | 'download-only'}
-                  description={game.description}
-                  thumbnail={game.thumbnail}
-                  playable={game.playable}
-                  entryPoint={game.entryPoint ?? 'index.html'}
-                  data-type={game.type}
-                  data-name={game.name}
-                  data-updated={game.lastUpdated}
-                />
-              </div>
-            ))}
-          </div>
-          <button type="button" class="strip-nav strip-next" aria-label="Next game">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 19l7-7-7-7"/></svg>
-          </button>
-        </div>
+      <div class="games-grid">
+        {games.map((game) => (
+          <GameCard
+            id={game.id}
+            name={game.name}
+            type={game.type as 'html' | 'renpy' | 'rpgmaker' | 'download-only'}
+            description={game.description}
+            thumbnail={game.thumbnail}
+            playable={game.playable}
+            entryPoint={game.entryPoint ?? 'index.html'}
+            data-type={game.type}
+            data-name={game.name}
+            data-updated={game.lastUpdated}
+          />
+        ))}
+      </div>
     )}
   </section>
 </Layout>
@@ -78,64 +65,13 @@ const games = gamesData.games;
     margin-bottom: 2rem;
   }
 
-  .games-strip-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .games-strip {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
+  .games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1rem;
-    padding: 2rem 1rem;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    flex: 1;
-    min-width: 0;
-    perspective: 1200px;
-  }
-
-  .games-strip::-webkit-scrollbar {
-    display: none;
-  }
-
-  .card-slot {
-    flex-shrink: 0;
-    width: min(320px, 85vw);
-    scroll-snap-align: center;
-    scroll-snap-stop: always;
-    display: flex;
-    justify-content: center;
-    transform-style: preserve-3d;
-  }
-
-  .strip-nav {
-    flex-shrink: 0;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--color-secondary);
-    border-radius: var(--border-radius);
-    background: var(--color-surface);
-    color: var(--color-text);
-    cursor: pointer;
-    transition: border-color var(--transition), color var(--transition);
-  }
-
-  .strip-nav:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-
-  .strip-nav:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.25);
+    padding: 0 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
   .no-games {
@@ -144,86 +80,3 @@ const games = gamesData.games;
     padding: 4rem 0;
   }
 </style>
-
-<style is:global>
-  #games-strip .card-slot .game-card {
-    width: 100%;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-  }
-  #games-strip .card-slot.is-center .game-card {
-    transform: scale(1.3);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 12px 40px rgba(233, 69, 96, 0.12);
-  }
-  #games-strip .card-slot.is-left .game-card {
-    transform: scale(0.7) rotateY(28deg);
-    opacity: 0.85;
-  }
-  #games-strip .card-slot.is-right .game-card {
-    transform: scale(0.7) rotateY(-28deg);
-    opacity: 0.85;
-  }
-</style>
-
-<script>
-  const strip = document.getElementById('games-strip');
-  const slots = strip ? Array.from(strip.querySelectorAll('.card-slot')) : [];
-  const prevBtn = document.querySelector('.strip-prev');
-  const nextBtn = document.querySelector('.strip-next');
-
-  const slotWidth = () => {
-    if (slots.length === 0) return 320;
-    const first = slots[0];
-    return first.offsetWidth + 16;
-  };
-
-  function updateCenter() {
-    if (!strip || slots.length === 0) return;
-    const stripRect = strip.getBoundingClientRect();
-    const centerX = stripRect.left + stripRect.width / 2;
-    let centerIndex = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < slots.length; i++) {
-      const slot = slots[i];
-      const rect = slot.getBoundingClientRect();
-      const mid = rect.left + rect.width / 2;
-      const dist = Math.abs(mid - centerX);
-      if (dist < minDist) {
-        minDist = dist;
-        centerIndex = i;
-      }
-    }
-    slots.forEach((slot, i) => {
-      slot.classList.remove('is-center', 'is-left', 'is-right');
-      if (i === centerIndex) slot.classList.add('is-center');
-      else if (i < centerIndex) slot.classList.add('is-left');
-      else slot.classList.add('is-right');
-    });
-  }
-
-  if (strip && slots.length > 0) {
-    strip.addEventListener('scroll', updateCenter);
-    updateCenter();
-    requestAnimationFrame(() => updateCenter());
-
-    if (prevBtn) {
-      prevBtn.addEventListener('click', () => {
-        strip.scrollBy({ left: -slotWidth(), behavior: 'smooth' });
-      });
-    }
-    if (nextBtn) {
-      nextBtn.addEventListener('click', () => {
-        strip.scrollBy({ left: slotWidth(), behavior: 'smooth' });
-      });
-    }
-
-    strip.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft') {
-        strip.scrollBy({ left: -slotWidth(), behavior: 'smooth' });
-        e.preventDefault();
-      } else if (e.key === 'ArrowRight') {
-        strip.scrollBy({ left: slotWidth(), behavior: 'smooth' });
-        e.preventDefault();
-      }
-    });
-  }
-</script>

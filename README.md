@@ -78,6 +78,34 @@ npm run remove-game -- my-game
 npm run remove-game -- my-game --dry-run
 ```
 
+## Ren'Py SDK (optional)
+
+To build Ren'Py games for web or other platforms, you can install the Ren'Py SDK into the project:
+
+```bash
+npm run install:renpy
+```
+
+This downloads the Ren'Py SDK (and optionally Renpyweb for web builds) into `vendor/renpy/`. Use `--web` to also install web platform support, and `--force` to reinstall:
+
+```bash
+npm run install:renpy -- --web --force
+```
+
+Set `RENPY_VERSION` to use a different version (default: 8.5.2):
+
+```bash
+RENPY_VERSION=8.4.0 npm run install:renpy
+```
+
+To install the SDK automatically when running `npm install`, set the environment variable:
+
+```bash
+INSTALL_RENPY=1 npm install
+```
+
+When the SDK is installed, `npm run test` runs additional tests that verify the included "The Question" example game is present and (if Renpyweb is installed) can be built for web. These tests are skipped when the SDK is not installed.
+
 **Zip structure:** Any zip is accepted. The script unpacks to `public/play/<game-id>/`. If the zip has a single top-level folder, its contents are flattened into that directory. You choose which root-level HTML file is the game entry when prompted.
 
 ## Project Structure
@@ -88,9 +116,14 @@ lofi-lobby/
 │   ├── play/<id>/       # Extracted web builds (gitignored)
 │   ├── downloads/       # Game zips for download (gitignored)
 │   └── images/games/    # Game thumbnails
+├── vendor/
+│   └── renpy/          # Ren'Py SDK (optional, gitignored; npm run install:renpy)
 ├── scripts/
 │   ├── update-game.mjs  # Add/update game from zip
-│   └── remove-game.mjs  # Remove game (keeps original zip)
+│   ├── remove-game.mjs  # Remove game (keeps original zip)
+│   ├── install-renpy.mjs # Install Ren'Py SDK
+│   ├── game-add-remove.test.mjs # Tests for update-game / remove-game
+│   └── install-renpy.test.mjs  # Tests for SDK and The Question (skipped when SDK not installed)
 ├── src/
 │   ├── components/
 │   │   ├── GameCard.astro
