@@ -369,13 +369,20 @@ async function main() {
   const today = new Date().toISOString().split('T')[0];
   
   if (isNewGame) {
-    // Prompt for game details
-    log('', 'reset');
-    log('Please provide game details:', 'cyan');
-    
-    const name = await prompt(`Game name [${gameId}]: `) || gameId;
-    const type = await prompt('Type (html/renpy/rpgmaker/download-only) [html]: ') || 'html';
-    const description = await prompt('Description: ') || `A ${type} game.`;
+    // Prompt for game details (or use env for non-interactive e.g. tests)
+    let name, type, description;
+    if (process.env.GAME_NAME != null || process.env.GAME_TYPE != null || process.env.GAME_DESCRIPTION != null) {
+      name = process.env.GAME_NAME || gameId;
+      type = process.env.GAME_TYPE || 'html';
+      description = process.env.GAME_DESCRIPTION || `A ${type} game.`;
+      log(`Using game details from env: ${name}, ${type}`, 'cyan');
+    } else {
+      log('', 'reset');
+      log('Please provide game details:', 'cyan');
+      name = await prompt(`Game name [${gameId}]: `) || gameId;
+      type = await prompt('Type (html/renpy/rpgmaker/download-only) [html]: ') || 'html';
+      description = await prompt('Description: ') || `A ${type} game.`;
+    }
 
     const newGame = {
       id: gameId,

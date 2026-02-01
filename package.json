@@ -8,7 +8,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "update-game": "node scripts/update-game.mjs",
-    "remove-game": "node scripts/remove-game.mjs"
+    "remove-game": "node scripts/remove-game.mjs",
+    "test": "node --test scripts/game-add-remove.test.mjs"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",

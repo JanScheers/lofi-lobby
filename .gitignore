@@ -28,5 +28,8 @@ public/games/
 public/play/
 public/downloads/
 
+# Unpacked game images (extracted from game zips)
+public/images/
+
 # Incoming game zips (temporary)
 incoming/

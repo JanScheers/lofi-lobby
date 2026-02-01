@@ -1,3 +1,28 @@
 {
-  "games": []
+  "games": [
+    {
+      "id": "example",
+      "name": "Example",
+      "type": "html",
+      "version": "1.0.0",
+      "description": "Ex",
+      "thumbnail": "/images/games/example.png",
+      "playable": true,
+      "downloadUrl": "/downloads/example.zip",
+      "lastUpdated": "2026-02-01",
+      "entryPoint": "index.html"
+    },
+    {
+      "id": "example-1",
+      "name": "example-1",
+      "type": "html",
+      "version": "1.0.0",
+      "description": "A html game.",
+      "thumbnail": "/images/games/example-1.png",
+      "playable": true,
+      "downloadUrl": "/downloads/example-1.zip",
+      "lastUpdated": "2026-02-01",
+      "entryPoint": "index.html"
+    }
+  ]
 }
