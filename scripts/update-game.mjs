@@ -226,6 +226,32 @@ function zipWouldYieldRenpyDistribution(zip, unpackStructure) {
 }
 
 /**
+ * Ren'Py distribute (even for web) processes icon.ico when adding Windows files; invalid/truncated
+ * .ico files cause IndexError in the SDK's change_icon.py. Temporarily hide project icons so
+ * distribute skips icon processing; we only need the web output.
+ */
+function hideProjectIcons(projectPath) {
+  const hidden = [];
+  for (const name of ['icon.ico', 'icon.icns']) {
+    const full = path.join(projectPath, name);
+    const bak = full + '.bak';
+    if (fs.existsSync(full)) {
+      fs.renameSync(full, bak);
+      hidden.push({ from: bak, to: full });
+    }
+  }
+  return hidden;
+}
+
+function restoreProjectIcons(hidden) {
+  for (const { from, to } of hidden) {
+    if (fs.existsSync(from)) {
+      fs.renameSync(from, to);
+    }
+  }
+}
+
+/**
  * Ensure update.pem exists in the Ren'Py project directory.
  * Ren'Py's distribute (web) expects this file for update signing; create a placeholder if missing.
  */
@@ -283,6 +309,38 @@ function getRootHtmlFiles(gameDir) {
     .filter(d => d.isFile() && d.name.toLowerCase().endsWith('.html'))
     .map(d => d.name)
     .sort();
+}
+
+/**
+ * If gameDir has no HTML at root but exactly one immediate subdirectory that contains
+ * .html files, move that subdirectory's contents up to gameDir root (for Ren'Py web
+ * builds that nest output one level deep).
+ */
+function flattenHtmlSubdirIfNeeded(gameDir) {
+  if (getRootHtmlFiles(gameDir).length > 0) return;
+  if (!fs.existsSync(gameDir)) return;
+  const entries = fs.readdirSync(gameDir, { withFileTypes: true });
+  const subdirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  const htmlContainingSubdirs = subdirs.filter((subName) => {
+    const subPath = path.join(gameDir, subName);
+    const subEntries = fs.readdirSync(subPath, { withFileTypes: true });
+    return subEntries.some(
+      (e) => e.isFile() && e.name.toLowerCase().endsWith('.html')
+    );
+  });
+  if (htmlContainingSubdirs.length !== 1) return;
+  const subName = htmlContainingSubdirs[0];
+  const subPath = path.join(gameDir, subName);
+  const tmpFlat = path.join(os.tmpdir(), `renpy-flatten-${Date.now()}`);
+  fs.mkdirSync(tmpFlat, { recursive: true });
+  try {
+    copyDirContents(subPath, tmpFlat);
+    const toRemove = path.join(gameDir, subName);
+    fs.rmSync(toRemove, { recursive: true });
+    copyDirContents(tmpFlat, gameDir);
+  } finally {
+    if (fs.existsSync(tmpFlat)) fs.rmSync(tmpFlat, { recursive: true });
+  }
 }
 
 /**
@@ -531,8 +589,9 @@ async function main() {
     }
     const cwd = getRenpyCwd(sdkRoot, launcher);
     ensureUpdatePem(projectPath);
-    log('Building Ren\'Py project to web...', 'cyan');
+    const hiddenIcons = hideProjectIcons(projectPath);
     try {
+      log('Building Ren\'Py project to web...', 'cyan');
       const args = [sdkRoot, 'distribute', '--package', 'web', projectPath].map((a) => `"${a}"`).join(' ');
       execSync(`"${launcher}" ${args}`, {
         cwd,
@@ -543,6 +602,8 @@ async function main() {
     } catch (err) {
       if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
       error(`Ren'Py web build failed. Check SDK and Renpyweb, and build logs: ${err.message}`);
+    } finally {
+      restoreProjectIcons(hiddenIcons);
     }
     const projectParent = path.dirname(projectPath);
     const projectBaseName = path.basename(projectPath).replace(/\s+/g, '_').toLowerCase();
@@ -586,6 +647,11 @@ async function main() {
     log('Ren\'Py web build installed to game directory', 'green');
   }
 
+  // Ren'Py web output may be one level deep (e.g. game-name-web/game-name/index.html)
+  if (builtRenpy) {
+    flattenHtmlSubdirIfNeeded(gameDir);
+  }
+
   const rootHtmlFiles = getRootHtmlFiles(gameDir);
   if (rootHtmlFiles.length === 0) {
     const distRoot = findRenpyDistributionRoot(gameDir);
@@ -598,10 +664,10 @@ async function main() {
         'Install the Ren\'Py SDK and Renpyweb with: npm run install:renpy -- --web'
       );
     }
-    if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
     error(
       'No HTML files found at the root of the extracted game. ' +
-      'Add at least one .html file at the root of the zip or folder, or use a Ren\'Py project (with .rpy source) so we can build it for web.'
+      'Add at least one .html file at the root of the zip or folder, or use a Ren\'Py project (with .rpy source) so we can build it for web. ' +
+      `Game directory left in place for inspection: ${gameDir}`
     );
   }
 
