@@ -3,7 +3,7 @@
  *
  * Shared helpers for Ren'Py SDK: SDK path, launcher, cwd, web support,
  * and detection of a Ren'Py project directory.
- * Used by update-game.mjs and install-renpy.test.mjs.
+ * Used by add-game.mjs and install-renpy.test.mjs.
  */
 
 import fs from 'fs';
@@ -98,7 +98,7 @@ export function getRenpyCwd(sdkRoot, launcher) {
 
 /**
  * Recursively check if a directory contains at least one .rpy file.
- * Exported for use in update-game.mjs (dir-would-yield checks).
+ * Exported for use in add-game.mjs (dir-would-yield checks).
  * @param {string} dir
  * @returns {boolean}
  */
@@ -126,7 +126,7 @@ function dirHasRenpyGame(dir) {
 
 /**
  * Recursively check if a directory contains at least one .rpyc file.
- * Exported for use in update-game.mjs (dir-would-yield checks).
+ * Exported for use in add-game.mjs (dir-would-yield checks).
  * @param {string} dir
  * @returns {boolean}
  */

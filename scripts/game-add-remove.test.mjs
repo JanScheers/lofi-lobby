@@ -1,5 +1,5 @@
 /**
- * Tests adding and removing the example game via update-game and remove-game scripts.
+ * Tests adding and removing the example game via add-game and remove-game scripts.
  * Run: node --test scripts/game-add-remove.test.mjs
  */
 
@@ -20,7 +20,7 @@ const GAME_ID = 'example-game';
 const ZIP_PATH = path.join(ROOT, 'example-game.zip');
 
 function runUpdateGame() {
-  const cmd = `node scripts/update-game.mjs ${GAME_ID} "${ZIP_PATH}" --version 1.0.0`;
+  const cmd = `node scripts/add-game.mjs ${GAME_ID} "${ZIP_PATH}" --version 1.0.0`;
   execSync(cmd, {
     cwd: ROOT,
     encoding: 'utf-8',

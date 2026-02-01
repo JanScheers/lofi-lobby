@@ -5,7 +5,7 @@
  *
  * Removes a game from the portfolio: deletes extracted files, the download
  * copy in public/downloads/, the thumbnail, and the metadata entry. The
- * original zip file you used with update-game is never touched.
+ * original zip file you used with add-game is never touched.
  *
  * Usage:
  *   npm run remove-game -- <game-id> [--dry-run]

@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * update-game.mjs
+ * add-game.mjs
  * 
- * Updates or adds a game to the portfolio by extracting a zip file or copying
+ * Adds or updates a game in the portfolio by extracting a zip file or copying
  * a directory, then updating the games.json metadata.
  * 
  * Usage:
- *   npm run update-game -- <game-id> <path-to-zip-or-dir> [--version <version>] [--dry-run]
+ *   npm run add-game -- <game-id> <path-to-zip-or-dir> [--version <version>] [--dry-run]
  * 
  * Examples:
- *   npm run update-game -- my-game ./incoming/my-game-v1.0.0.zip
- *   npm run update-game -- my-game ./incoming/WTS
- *   npm run update-game -- my-game ./incoming/my-game.zip --version 1.2.0 --dry-run
+ *   npm run add-game -- my-game ./incoming/my-game-v1.0.0.zip
+ *   npm run add-game -- my-game ./incoming/WTS
+ *   npm run add-game -- my-game ./incoming/my-game.zip --version 1.2.0 --dry-run
  */
 
 import fs from 'fs';
@@ -421,12 +421,12 @@ async function main() {
 
   // Validate inputs
   if (!gameId || !zipPath) {
-    log('Usage: npm run update-game -- <game-id> <path-to-zip-or-dir> [--version <version>] [--dry-run]', 'yellow');
+    log('Usage: npm run add-game -- <game-id> <path-to-zip-or-dir> [--version <version>] [--dry-run]', 'yellow');
     log('');
     log('Examples:', 'cyan');
-    log('  npm run update-game -- my-game ./incoming/my-game-v1.0.0.zip');
-    log('  npm run update-game -- wts ./incoming/WTS');
-    log('  npm run update-game -- my-game ./incoming/my-game.zip --version 1.2.0 --dry-run');
+    log('  npm run add-game -- my-game ./incoming/my-game-v1.0.0.zip');
+    log('  npm run add-game -- wts ./incoming/WTS');
+    log('  npm run add-game -- my-game ./incoming/my-game.zip --version 1.2.0 --dry-run');
     process.exit(1);
   }
 

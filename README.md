@@ -28,7 +28,7 @@ npm run preview  # Preview production build
 1. **Run the add-game command** from the project root:
 
    ```bash
-   npm run update-game -- <game-id> <path-to-zip>
+   npm run add-game -- <game-id> <path-to-zip>
    ```
 
    - `<game-id>` — URL slug for the game (e.g. `my-game`, `space-shooter`).
@@ -54,18 +54,18 @@ npm run preview  # Preview production build
 
 ```bash
 # Add or update a game (prompts for version and entry HTML if needed)
-npm run update-game -- my-game ./incoming/my-game-v1.0.0.zip
+npm run add-game -- my-game ./incoming/my-game-v1.0.0.zip
 
 # Set version on the command line
-npm run update-game -- my-game ./my-game.zip --version 1.2.0
+npm run add-game -- my-game ./my-game.zip --version 1.2.0
 
 # Preview changes only
-npm run update-game -- my-game ./my-game.zip --dry-run
+npm run add-game -- my-game ./my-game.zip --dry-run
 ```
 
 ### Removing a game
 
-Removes the game from the portfolio: deletes the extracted files in `public/play/<game-id>/`, the copy in `public/downloads/<game-id>.zip`, the thumbnail, and the entry in `games.json`. **The original zip you used with update-game is never touched.**
+Removes the game from the portfolio: deletes the extracted files in `public/play/<game-id>/`, the copy in `public/downloads/<game-id>.zip`, the thumbnail, and the entry in `games.json`. **The original zip you used with add-game is never touched.**
 
 ```bash
 npm run remove-game -- <game-id> [--dry-run]
@@ -119,10 +119,10 @@ lofi-lobby/
 ├── vendor/
 │   └── renpy/          # Ren'Py SDK (optional, gitignored; npm run install:renpy)
 ├── scripts/
-│   ├── update-game.mjs  # Add/update game from zip
+│   ├── add-game.mjs  # Add/update game from zip
 │   ├── remove-game.mjs  # Remove game (keeps original zip)
 │   ├── install-renpy.mjs # Install Ren'Py SDK
-│   ├── game-add-remove.test.mjs # Tests for update-game / remove-game
+│   ├── game-add-remove.test.mjs # Tests for add-game / remove-game
 │   └── install-renpy.test.mjs  # Tests for SDK and The Question (skipped when SDK not installed)
 ├── src/
 │   ├── components/
@@ -174,7 +174,7 @@ Games are defined in `src/data/games.json`:
 | `playable` | boolean | `true` if web-playable, `false` for download-only |
 | `downloadUrl` | string | Path to download zip (or external URL) |
 | `lastUpdated` | string | ISO date of last update |
-| `entryPoint` | string | Root-level HTML file used as the game entry (e.g. `index.html`). Set by the update-game script. |
+| `entryPoint` | string | Root-level HTML file used as the game entry (e.g. `index.html`). Set by the add-game script. |
 
 ## License
 

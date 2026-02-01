@@ -36,3 +36,6 @@ incoming/
 
 # Ren'Py SDK (optional, installed via npm run install:renpy)
 vendor/renpy/
+
+# Game catalog (populated by add-game; use games.json.example as template)
+src/data/games.json

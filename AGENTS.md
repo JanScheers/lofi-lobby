@@ -8,7 +8,7 @@
   npm run test
   ```
 
-If you change `scripts/update-game.mjs`, `scripts/remove-game.mjs`, or `scripts/install-renpy.mjs`, run this test and fix any failures before committing.
+If you change `scripts/add-game.mjs`, `scripts/remove-game.mjs`, or `scripts/install-renpy.mjs`, run this test and fix any failures before committing.
 
 ## Ren'Py SDK
 
