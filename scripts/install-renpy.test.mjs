@@ -12,21 +12,9 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { test } from 'node:test';
 import assert from 'node:assert';
+import { getSdkRoot, getRenpyLauncher, getRenpyCwd, hasWebSupport } from './renpy-utils.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, '..');
-const VENDOR_RENPY = path.join(ROOT, 'vendor', 'renpy');
-const DEFAULT_VERSION = process.env.RENPY_VERSION || '8.5.2';
-
-function getSdkRoot() {
-  const dir = path.join(VENDOR_RENPY, `renpy-${DEFAULT_VERSION}`);
-  try {
-    fs.accessSync(dir);
-    return dir;
-  } catch {
-    return null;
-  }
-}
 
 function getTheQuestionPath(sdkRoot) {
   const names = ['the_question', 'The Question'];
@@ -41,60 +29,6 @@ function getTheQuestionPath(sdkRoot) {
     }
   }
   return null;
-}
-
-function hasWebSupport(sdkRoot) {
-  const webDir = path.join(sdkRoot, 'web');
-  try {
-    fs.accessSync(webDir);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function getRenpyLauncher(sdkRoot) {
-  const platform = process.platform;
-  if (platform === 'win32') {
-    const exe = path.join(sdkRoot, 'renpy.exe');
-    try {
-      fs.accessSync(exe);
-      return exe;
-    } catch {
-      return null;
-    }
-  }
-  if (platform === 'darwin') {
-    // Prefer renpy.app binary on macOS: DMG install uses it; renpy.sh often fails (lib/py3-mac-universal or exec)
-    const appRenpy = path.join(sdkRoot, 'renpy.app', 'Contents', 'MacOS', 'renpy');
-    try {
-      fs.accessSync(appRenpy);
-      return appRenpy;
-    } catch {
-      const sh = path.join(sdkRoot, 'renpy.sh');
-      try {
-        fs.accessSync(sh);
-        return sh;
-      } catch {
-        return null;
-      }
-    }
-  }
-  const sh = path.join(sdkRoot, 'renpy.sh');
-  try {
-    fs.accessSync(sh);
-    return sh;
-  } catch {
-    return null;
-  }
-}
-
-/** Working directory when invoking the launcher (Mac app must run from its MacOS dir). */
-function getRenpyCwd(sdkRoot, launcher) {
-  if (process.platform === 'darwin' && launcher?.includes('renpy.app')) {
-    return path.dirname(launcher);
-  }
-  return sdkRoot;
 }
 
 test("Ren'Py SDK and The Question (when SDK installed)", (t) => {

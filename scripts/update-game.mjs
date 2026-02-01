@@ -3,23 +3,36 @@
 /**
  * update-game.mjs
  * 
- * Updates or adds a game to the portfolio by extracting a zip file
- * and updating the games.json metadata.
+ * Updates or adds a game to the portfolio by extracting a zip file or copying
+ * a directory, then updating the games.json metadata.
  * 
  * Usage:
- *   npm run update-game -- <game-id> <path-to-zip> [--version <version>] [--dry-run]
+ *   npm run update-game -- <game-id> <path-to-zip-or-dir> [--version <version>] [--dry-run]
  * 
  * Examples:
  *   npm run update-game -- my-game ./incoming/my-game-v1.0.0.zip
- *   npm run update-game -- my-game ./incoming/my-game.zip --version 1.2.0
- *   npm run update-game -- my-game ./incoming/my-game.zip --dry-run
+ *   npm run update-game -- my-game ./incoming/WTS
+ *   npm run update-game -- my-game ./incoming/my-game.zip --version 1.2.0 --dry-run
  */
 
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 import AdmZip from 'adm-zip';
 import readline from 'readline';
+import {
+  getSdkRoot,
+  getRenpyLauncher,
+  getRenpyCwd,
+  hasWebSupport,
+  findRenpyProjectRoot,
+  findRenpyDistributionRoot,
+  dirContainsRpy,
+  dirContainsRpyc,
+} from './renpy-utils.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,11 +91,13 @@ function parseArgs(args) {
 }
 
 function extractVersionFromFilename(filename) {
-  // Try to extract version from patterns like: game-v1.0.0.zip, game_1.2.3.zip, game-1.0.zip
+  // Try to extract version from patterns like: game-v1.0.0.zip, game_1.2.3.zip, game-1.0.zip, WTS-1.49.2
   const patterns = [
     /[_-]v?(\d+\.\d+\.\d+)\.zip$/i,
-    /[_-]v?(\d+\.\d+)\.zip$/i,
+    /[_-]v?(\d+\.\d+)\.\d*\.zip$/i,
     /[_-]v?(\d+)\.zip$/i,
+    /[_-]v?(\d+\.\d+\.\d+)$/i,
+    /[_-]v?(\d+\.\d+)$/i,
   ];
 
   for (const pattern of patterns) {
@@ -93,6 +108,153 @@ function extractVersionFromFilename(filename) {
   }
 
   return null;
+}
+
+/**
+ * Determine how to unpack a directory: flatten from a single root folder, or use as-is.
+ */
+function getUnpackStructureFromDir(dirPath) {
+  if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+    return { flatten: false };
+  }
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  const dirs = entries.filter((e) => e.isDirectory());
+  if (dirs.length === 1 && entries.length === 1) {
+    return { flatten: true, rootFolder: dirs[0].name };
+  }
+  return { flatten: false };
+}
+
+/**
+ * Check if directory would yield a Ren'Py project (game/ with .rpy anywhere) after copy.
+ */
+function dirWouldYieldRenpyProject(dirPath, unpackStructure) {
+  const root = unpackStructure.flatten && unpackStructure.rootFolder
+    ? path.join(dirPath, unpackStructure.rootFolder)
+    : dirPath;
+  const gameDir = path.join(root, 'game');
+  if (!fs.existsSync(gameDir) || !fs.statSync(gameDir).isDirectory()) return false;
+  return dirContainsRpy(gameDir);
+}
+
+/**
+ * Check if directory would yield a Ren'Py PC distribution (game/ with .rpyc, no .rpy).
+ */
+function dirWouldYieldRenpyDistribution(dirPath, unpackStructure) {
+  const root = unpackStructure.flatten && unpackStructure.rootFolder
+    ? path.join(dirPath, unpackStructure.rootFolder)
+    : dirPath;
+  const gameDir = path.join(root, 'game');
+  if (!fs.existsSync(gameDir) || !fs.statSync(gameDir).isDirectory()) return false;
+  return dirContainsRpyc(gameDir) && !dirContainsRpy(gameDir);
+}
+
+/**
+ * Create a zip file from a directory (one root folder inside the zip).
+ */
+function zipFromDir(sourceDir, destZipPath) {
+  const zip = new AdmZip();
+  zip.addLocalFolder(sourceDir, path.basename(sourceDir));
+  fs.mkdirSync(path.dirname(destZipPath), { recursive: true });
+  zip.writeZip(destZipPath);
+}
+
+/**
+ * Check if zip would yield a Ren'Py project after extraction (for dry-run message).
+ * Looks for game/*.rpy or single top-level dir containing game/*.rpy.
+ */
+function zipWouldYieldRenpyProject(zip, unpackStructure) {
+  const entries = zip.getEntries();
+  const hasGameRpy = (prefix) => {
+    const prefixSlash = prefix ? `${prefix}/` : '';
+    return entries.some((e) => {
+      const name = e.entryName;
+      if (!name.startsWith(prefixSlash)) return false;
+      const rest = prefix ? name.slice(prefixSlash.length) : name;
+      return rest.startsWith('game/') && rest.toLowerCase().endsWith('.rpy');
+    });
+  };
+  if (unpackStructure.flatten && unpackStructure.rootFolder) {
+    return hasGameRpy(unpackStructure.rootFolder);
+  }
+  if (hasGameRpy('')) return true;
+  const topLevel = new Set();
+  for (const e of entries) {
+    const parts = e.entryName.split('/').filter(Boolean);
+    if (parts.length >= 1) topLevel.add(parts[0]);
+  }
+  if (topLevel.size !== 1) return false;
+  const root = [...topLevel][0];
+  return hasGameRpy(root);
+}
+
+/**
+ * Check if zip would yield a Ren'Py PC distribution (game/*.rpyc, no .rpy) after extraction.
+ */
+function zipWouldYieldRenpyDistribution(zip, unpackStructure) {
+  const entries = zip.getEntries();
+  const hasGameRpyc = (prefix) => {
+    const prefixSlash = prefix ? `${prefix}/` : '';
+    return entries.some((e) => {
+      const name = e.entryName;
+      if (!name.startsWith(prefixSlash)) return false;
+      const rest = prefix ? name.slice(prefixSlash.length) : name;
+      return rest.startsWith('game/') && rest.toLowerCase().endsWith('.rpyc');
+    });
+  };
+  const hasGameRpy = (prefix) => {
+    const prefixSlash = prefix ? `${prefix}/` : '';
+    return entries.some((e) => {
+      const name = e.entryName;
+      if (!name.startsWith(prefixSlash)) return false;
+      const rest = prefix ? name.slice(prefixSlash.length) : name;
+      return rest.startsWith('game/') && rest.toLowerCase().endsWith('.rpy');
+    });
+  };
+  const check = (prefix) => hasGameRpyc(prefix) && !hasGameRpy(prefix);
+  if (unpackStructure.flatten && unpackStructure.rootFolder) {
+    return check(unpackStructure.rootFolder);
+  }
+  if (check('')) return true;
+  const topLevel = new Set();
+  for (const e of entries) {
+    const parts = e.entryName.split('/').filter(Boolean);
+    if (parts.length >= 1) topLevel.add(parts[0]);
+  }
+  if (topLevel.size !== 1) return false;
+  return check([...topLevel][0]);
+}
+
+/**
+ * Ensure update.pem exists in the Ren'Py project directory.
+ * Ren'Py's distribute (web) expects this file for update signing; create a placeholder if missing.
+ */
+function ensureUpdatePem(projectPath) {
+  const pemPath = path.join(projectPath, 'update.pem');
+  if (fs.existsSync(pemPath)) return;
+  const { privateKey } = crypto.generateKeyPairSync('ec', {
+    namedCurve: 'prime256v1',
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+  });
+  fs.writeFileSync(pemPath, privateKey, 'utf-8');
+}
+
+/**
+ * Copy directory contents from src to dest (dest must exist).
+ */
+function copyDirContents(src, dest) {
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const e of entries) {
+    const srcPath = path.join(src, e.name);
+    const destPath = path.join(dest, e.name);
+    if (e.isDirectory()) {
+      fs.mkdirSync(destPath, { recursive: true });
+      copyDirContents(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
 }
 
 /**
@@ -201,12 +363,12 @@ async function main() {
 
   // Validate inputs
   if (!gameId || !zipPath) {
-    log('Usage: npm run update-game -- <game-id> <path-to-zip> [--version <version>] [--dry-run]', 'yellow');
+    log('Usage: npm run update-game -- <game-id> <path-to-zip-or-dir> [--version <version>] [--dry-run]', 'yellow');
     log('');
     log('Examples:', 'cyan');
     log('  npm run update-game -- my-game ./incoming/my-game-v1.0.0.zip');
-    log('  npm run update-game -- my-game ./incoming/my-game.zip --version 1.2.0');
-    log('  npm run update-game -- my-game ./incoming/my-game.zip --dry-run');
+    log('  npm run update-game -- wts ./incoming/WTS');
+    log('  npm run update-game -- my-game ./incoming/my-game.zip --version 1.2.0 --dry-run');
     process.exit(1);
   }
 
@@ -215,30 +377,40 @@ async function main() {
     log('');
   }
 
-  // Validate zip file exists
-  const absoluteZipPath = path.resolve(zipPath);
-  if (!fs.existsSync(absoluteZipPath)) {
-    error(`Zip file not found: ${absoluteZipPath}`);
+  const absoluteSourcePath = path.resolve(zipPath);
+  if (!fs.existsSync(absoluteSourcePath)) {
+    error(`Path not found: ${absoluteSourcePath}`);
   }
 
+  const isSourceDir = fs.statSync(absoluteSourcePath).isDirectory();
   log(`Processing game: ${gameId}`, 'cyan');
-  log(`Zip file: ${absoluteZipPath}`, 'cyan');
+  log(`Source: ${absoluteSourcePath} (${isSourceDir ? 'directory' : 'zip'})`, 'cyan');
 
-  // Load and validate zip
-  let zip;
-  try {
-    zip = new AdmZip(absoluteZipPath);
-  } catch (err) {
-    error(`Failed to open zip file: ${err.message}`);
+  let unpackStructure;
+  let sourceDirForCopy = null; // set when isSourceDir: the folder we copy from (and later zip for downloads)
+
+  if (isSourceDir) {
+    unpackStructure = getUnpackStructureFromDir(absoluteSourcePath);
+    sourceDirForCopy = unpackStructure.flatten && unpackStructure.rootFolder
+      ? path.join(absoluteSourcePath, unpackStructure.rootFolder)
+      : absoluteSourcePath;
+    log(`Directory structure: ${unpackStructure.flatten ? `Single folder "${unpackStructure.rootFolder}" (will flatten)` : 'Root level'}`, 'green');
+  } else {
+    let zip;
+    try {
+      zip = new AdmZip(absoluteSourcePath);
+    } catch (err) {
+      error(`Failed to open zip file: ${err.message}`);
+    }
+    unpackStructure = getUnpackStructure(zip);
+    log(`Zip structure: ${unpackStructure.flatten ? `Single folder "${unpackStructure.rootFolder}" (will flatten)` : 'Root level'}`, 'green');
   }
-
-  const unpackStructure = getUnpackStructure(zip);
-  log(`Zip structure: ${unpackStructure.flatten ? `Single folder "${unpackStructure.rootFolder}" (will flatten)` : 'Root level'}`, 'green');
 
   // Determine version
   let finalVersion = version;
   if (!finalVersion) {
-    finalVersion = extractVersionFromFilename(path.basename(zipPath));
+    const nameForVersion = isSourceDir ? path.basename(sourceDirForCopy ?? absoluteSourcePath) : path.basename(zipPath);
+    finalVersion = extractVersionFromFilename(nameForVersion);
   }
   if (!finalVersion) {
     if (dryRun) {
@@ -272,10 +444,24 @@ async function main() {
     log('', 'reset');
     log('Would perform the following actions:', 'yellow');
     log(`  - ${isNewGame ? 'Create' : 'Clear and recreate'} directory: ${gameDir}`);
-    log(`  - Extract ${zip.getEntries().length} files from zip`);
+    if (isSourceDir) {
+      log(`  - Copy directory ${sourceDirForCopy} to game dir`);
+      if (dirWouldYieldRenpyProject(absoluteSourcePath, unpackStructure)) {
+        log('  - Detect Ren\'Py project; would build to web (requires SDK + Renpyweb) then use web output as game content');
+      } else if (dirWouldYieldRenpyDistribution(absoluteSourcePath, unpackStructure)) {
+        log('  - Detect Ren\'Py PC distribution (compiled); would error: need project source (.rpy) or pre-built web zip');
+      }
+    } else {
+      log(`  - Extract zip (${new AdmZip(absoluteSourcePath).getEntries().length} entries)`);
+      if (zipWouldYieldRenpyProject(new AdmZip(absoluteSourcePath), unpackStructure)) {
+        log('  - Detect Ren\'Py project; would build to web (requires SDK + Renpyweb) then use web output as game content');
+      } else if (zipWouldYieldRenpyDistribution(new AdmZip(absoluteSourcePath), unpackStructure)) {
+        log('  - Detect Ren\'Py PC distribution (compiled); would error: need project source (.rpy) or pre-built web zip');
+      }
+    }
     log(`  - Prompt for which root HTML file is the game entry point`);
-    log(`  - Try to copy an image from zip to public/images/games/ as thumbnail`);
-    log(`  - Copy zip to: ${path.join(DOWNLOADS_DIR, `${gameId}.zip`)}`);
+    log(`  - Try to copy an image to public/images/games/ as thumbnail`);
+    log(`  - ${isSourceDir ? 'Create zip from directory and save to' : 'Copy zip to'}: ${path.join(DOWNLOADS_DIR, `${gameId}.zip`)}`);
     log(`  - Update metadata with version ${finalVersion} and entryPoint`);
     log('');
     log('Dry run complete. No changes were made.', 'green');
@@ -289,40 +475,134 @@ async function main() {
   }
   fs.mkdirSync(gameDir, { recursive: true });
 
-  // Extract zip
-  try {
-    if (unpackStructure.flatten && unpackStructure.rootFolder) {
-      const entries = zip.getEntries();
-      for (const entry of entries) {
-        if (entry.entryName.startsWith(`${unpackStructure.rootFolder}/`)) {
-          const relativePath = entry.entryName.slice(unpackStructure.rootFolder.length + 1);
-          if (relativePath) {
-            const targetPath = path.join(gameDir, relativePath);
-            if (entry.isDirectory) {
-              fs.mkdirSync(targetPath, { recursive: true });
-            } else {
-              fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-              fs.writeFileSync(targetPath, entry.getData());
+  if (isSourceDir) {
+    try {
+      copyDirContents(sourceDirForCopy, gameDir);
+      log(`Copied directory to: ${gameDir}`, 'green');
+    } catch (err) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error(`Failed to copy directory: ${err.message}`);
+    }
+  } else {
+    const zip = new AdmZip(absoluteSourcePath);
+    try {
+      if (unpackStructure.flatten && unpackStructure.rootFolder) {
+        const entries = zip.getEntries();
+        for (const entry of entries) {
+          if (entry.entryName.startsWith(`${unpackStructure.rootFolder}/`)) {
+            const relativePath = entry.entryName.slice(unpackStructure.rootFolder.length + 1);
+            if (relativePath) {
+              const targetPath = path.join(gameDir, relativePath);
+              if (entry.isDirectory) {
+                fs.mkdirSync(targetPath, { recursive: true });
+              } else {
+                fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+                fs.writeFileSync(targetPath, entry.getData());
+              }
             }
           }
         }
+      } else {
+        zip.extractAllTo(gameDir, true);
       }
-    } else {
-      zip.extractAllTo(gameDir, true);
+      log(`Extracted to: ${gameDir}`, 'green');
+    } catch (err) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error(`Failed to extract zip: ${err.message}`);
     }
-    log(`Extracted to: ${gameDir}`, 'green');
-  } catch (err) {
-    // Clean up on failure
-    if (fs.existsSync(gameDir)) {
+  }
+
+  let builtRenpy = false;
+  const projectPath = findRenpyProjectRoot(gameDir);
+  if (projectPath) {
+    const sdkRoot = getSdkRoot();
+    if (!sdkRoot) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error('Ren\'Py project detected but SDK not installed. Run: npm run install:renpy -- --web');
+    }
+    if (!hasWebSupport(sdkRoot)) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error('Ren\'Py project detected but Renpyweb not installed. Run: npm run install:renpy -- --web');
+    }
+    const launcher = getRenpyLauncher(sdkRoot);
+    if (!launcher) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error('Ren\'Py launcher not found in SDK.');
+    }
+    const cwd = getRenpyCwd(sdkRoot, launcher);
+    ensureUpdatePem(projectPath);
+    log('Building Ren\'Py project to web...', 'cyan');
+    try {
+      const args = [sdkRoot, 'distribute', '--package', 'web', projectPath].map((a) => `"${a}"`).join(' ');
+      execSync(`"${launcher}" ${args}`, {
+        cwd,
+        encoding: 'utf-8',
+        stdio: 'inherit',
+        timeout: 300_000,
+      });
+    } catch (err) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error(`Ren'Py web build failed. Check SDK and Renpyweb, and build logs: ${err.message}`);
+    }
+    const projectParent = path.dirname(projectPath);
+    const projectBaseName = path.basename(projectPath).replace(/\s+/g, '_').toLowerCase();
+    const parentEntries = fs.readdirSync(projectParent);
+    const distBaseDir = parentEntries.find(
+      (e) => e.endsWith('-dists') && e.toLowerCase().startsWith(projectBaseName)
+    );
+    if (!distBaseDir) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error(`Ren'Py web build output not found under ${projectParent} (expected *-dists directory).`);
+    }
+    const distBase = path.join(projectParent, distBaseDir);
+    const distEntries = fs.readdirSync(distBase);
+    const webEntry = distEntries.find((e) => e.includes('web'));
+    if (!webEntry) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error(`Ren'Py web build output (web folder or zip) not found under ${distBase}.`);
+    }
+    const webPath = path.join(distBase, webEntry);
+    const webStat = fs.statSync(webPath);
+    const tmpDir = path.join(os.tmpdir(), `renpy-web-${gameId}-${Date.now()}`);
+    fs.mkdirSync(tmpDir, { recursive: true });
+    try {
+      if (webStat.isDirectory()) {
+        copyDirContents(webPath, tmpDir);
+      } else if (webEntry.toLowerCase().endsWith('.zip')) {
+        const webZip = new AdmZip(webPath);
+        webZip.extractAllTo(tmpDir, true);
+      } else {
+        if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+        fs.rmSync(tmpDir, { recursive: true });
+        error(`Unexpected Ren'Py web build output: ${webPath}`);
+      }
       fs.rmSync(gameDir, { recursive: true });
+      fs.mkdirSync(gameDir, { recursive: true });
+      copyDirContents(tmpDir, gameDir);
+    } finally {
+      if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true });
     }
-    error(`Failed to extract zip: ${err.message}`);
+    builtRenpy = true;
+    log('Ren\'Py web build installed to game directory', 'green');
   }
 
   const rootHtmlFiles = getRootHtmlFiles(gameDir);
   if (rootHtmlFiles.length === 0) {
+    const distRoot = findRenpyDistributionRoot(gameDir);
+    if (distRoot) {
+      if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
+      error(
+        'This looks like a Ren\'Py PC distribution (compiled game), not the project source. ' +
+        'To host the game on the web we need either: (1) the Ren\'Py project with .rpy source files—then we can build for web automatically—or ' +
+        '(2) a zip or folder that already contains the web build (HTML/JS files at the root). ' +
+        'Install the Ren\'Py SDK and Renpyweb with: npm run install:renpy -- --web'
+      );
+    }
     if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
-    error('No HTML files found at the root of the extracted game. Add at least one .html file at the root of the zip.');
+    error(
+      'No HTML files found at the root of the extracted game. ' +
+      'Add at least one .html file at the root of the zip or folder, or use a Ren\'Py project (with .rpy source) so we can build it for web.'
+    );
   }
 
   let entryPoint;
@@ -359,11 +639,16 @@ async function main() {
     log('No image found in zip for thumbnail. Add one manually to public/images/games/' + gameId + '.png', 'yellow');
   }
 
-  // Copy zip to downloads
+  // Copy or create zip for downloads
   fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
   const downloadPath = path.join(DOWNLOADS_DIR, `${gameId}.zip`);
-  fs.copyFileSync(absoluteZipPath, downloadPath);
-  log(`Copied zip to: ${downloadPath}`, 'green');
+  if (isSourceDir) {
+    zipFromDir(sourceDirForCopy, downloadPath);
+    log(`Created zip for downloads: ${downloadPath}`, 'green');
+  } else {
+    fs.copyFileSync(absoluteSourcePath, downloadPath);
+    log(`Copied zip to: ${downloadPath}`, 'green');
+  }
 
   // Update metadata
   const today = new Date().toISOString().split('T')[0];
@@ -373,14 +658,15 @@ async function main() {
     let name, type, description;
     if (process.env.GAME_NAME != null || process.env.GAME_TYPE != null || process.env.GAME_DESCRIPTION != null) {
       name = process.env.GAME_NAME || gameId;
-      type = process.env.GAME_TYPE || 'html';
+      type = process.env.GAME_TYPE || (builtRenpy ? 'renpy' : 'html');
       description = process.env.GAME_DESCRIPTION || `A ${type} game.`;
       log(`Using game details from env: ${name}, ${type}`, 'cyan');
     } else {
       log('', 'reset');
       log('Please provide game details:', 'cyan');
       name = await prompt(`Game name [${gameId}]: `) || gameId;
-      type = await prompt('Type (html/renpy/rpgmaker/download-only) [html]: ') || 'html';
+      const typeDefault = builtRenpy ? 'renpy' : 'html';
+      type = await prompt(`Type (html/renpy/rpgmaker/download-only) [${typeDefault}]: `) || typeDefault;
       description = await prompt('Description: ') || `A ${type} game.`;
     }
 
