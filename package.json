@@ -9,6 +9,7 @@
     "astro": "astro",
     "clean": "node scripts/clean.mjs",
     "add-game": "node scripts/add-game.mjs",
+    "add-example-game": "node scripts/add-example-game.mjs",
     "remove-game": "node scripts/remove-game.mjs",
     "install:renpy": "node scripts/install-renpy.mjs",
     "postinstall": "node scripts/ensure-games-yaml.mjs && node -e \"if (!process.env.INSTALL_RENPY) process.exit(0); require('child_process').execSync('node scripts/install-renpy.mjs', {stdio:'inherit'})\"",
