@@ -1,0 +1,15 @@
+{
+  "games": [
+    {
+      "id": "example-game",
+      "name": "Example Game",
+      "type": "html",
+      "version": "1.0.0",
+      "description": "An example HTML game to demonstrate the portfolio.",
+      "thumbnail": "/images/games/example-game.png",
+      "playable": true,
+      "downloadUrl": null,
+      "lastUpdated": "2026-02-01"
+    }
+  ]
+}

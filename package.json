@@ -1,0 +1,16 @@
+{
+  "name": "lofi-lobby",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "update-game": "node scripts/update-game.mjs"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "astro": "^5.17.1"
+  }
+}

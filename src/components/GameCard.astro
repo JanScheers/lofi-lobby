@@ -1,0 +1,142 @@
+---
+interface Props {
+  id: string;
+  name: string;
+  type: 'html' | 'renpy' | 'rpgmaker' | 'download-only';
+  description: string;
+  thumbnail: string;
+  playable: boolean;
+}
+
+const { id, name, type, description, thumbnail, playable } = Astro.props;
+
+const typeLabels: Record<string, string> = {
+  'html': 'HTML',
+  'renpy': "Ren'Py",
+  'rpgmaker': 'RPG Maker',
+  'download-only': 'Download'
+};
+
+const typeLabel = typeLabels[type] || type;
+---
+
+<a href={`/games/${id}/`} class="game-card">
+  <div class="thumbnail">
+    <img src={thumbnail} alt={`${name} thumbnail`} loading="lazy" />
+    <span class={`badge badge-${type}`}>{typeLabel}</span>
+  </div>
+  <div class="content">
+    <h3>{name}</h3>
+    <p>{description}</p>
+    <span class="action">
+      {playable ? 'Play Now' : 'Download'}
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    </span>
+  </div>
+</a>
+
+<style>
+  .game-card {
+    display: block;
+    background-color: var(--color-surface);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    transition: transform var(--transition), box-shadow var(--transition);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .game-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    opacity: 1;
+  }
+
+  .thumbnail {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background-color: var(--color-secondary);
+  }
+
+  .thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition);
+  }
+
+  .game-card:hover .thumbnail img {
+    transform: scale(1.05);
+  }
+
+  .badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .badge-html {
+    background-color: #f39c12;
+    color: #1a1a2e;
+  }
+
+  .badge-renpy {
+    background-color: #9b59b6;
+    color: #fff;
+  }
+
+  .badge-rpgmaker {
+    background-color: #3498db;
+    color: #fff;
+  }
+
+  .badge-download-only {
+    background-color: #7f8c8d;
+    color: #fff;
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  .content h3 {
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-text);
+  }
+
+  .content p {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-primary);
+  }
+
+  .action svg {
+    transition: transform var(--transition);
+  }
+
+  .game-card:hover .action svg {
+    transform: translateX(4px);
+  }
+</style>
