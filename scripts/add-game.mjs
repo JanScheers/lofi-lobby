@@ -38,7 +38,7 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
-const GAMES_DIR = path.join(ROOT_DIR, 'public', 'play');
+const GAMES_DIR = path.join(ROOT_DIR, 'play');
 const THUMBNAILS_DIR = path.join(ROOT_DIR, 'public', 'images', 'games');
 const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.yaml');
 

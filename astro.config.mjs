@@ -5,8 +5,8 @@ import path from 'path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Astro integration: after build, replace dist/play with a symlink to public/play
- * so game HTML/assets are not copied into dist/ but /play/ still works when
+ * Astro integration: after build, create dist/play as a symlink to project-root play/
+ * so game HTML/assets are never copied into dist/ but /play/ still works when
  * serving from dist/ (e.g. local preview or a host that follows symlinks).
  */
 function symlinkPlayInDist() {
@@ -20,8 +20,8 @@ function symlinkPlayInDist() {
         if (fs.existsSync(playLink)) {
           fs.rmSync(playLink, { recursive: true });
         }
-        // Symlink dist/play -> public/play (relative so it's portable)
-        const target = path.relative(outDir, path.join(root, 'public', 'play'));
+        // Symlink dist/play -> play/ at project root (relative so it's portable)
+        const target = path.relative(outDir, path.join(root, 'play'));
         fs.symlinkSync(target, playLink, 'dir');
       },
     },

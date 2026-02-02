@@ -157,7 +157,7 @@ function dirHasRenpyDistribution(dir) {
 
 /**
  * Find the Ren'Py project root under gameDir (either gameDir itself or its single directory child).
- * @param {string} gameDir - e.g. public/play/<gameId>
+ * @param {string} gameDir - e.g. play/<gameId>
  * @returns {string | null} Project root path, or null if not a Ren'Py project
  */
 export function findRenpyProjectRoot(gameDir) {
@@ -175,7 +175,7 @@ export function findRenpyProjectRoot(gameDir) {
 /**
  * Find a Ren'Py distribution root (game/ with .rpyc, no .rpy) under gameDir.
  * Used to give a clear error when the user provides a PC build zip instead of source.
- * @param {string} gameDir - e.g. public/play/<gameId>
+ * @param {string} gameDir - e.g. play/<gameId>
  * @returns {string | null} Path to the distribution root, or null
  */
 export function findRenpyDistributionRoot(gameDir) {

@@ -13,7 +13,7 @@ import yaml from 'yaml';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const GAMES_DIR = path.join(ROOT, 'public', 'play');
+const GAMES_DIR = path.join(ROOT, 'play');
 const THUMBNAILS_DIR = path.join(ROOT, 'public', 'images', 'games');
 const METADATA_FILE = path.join(ROOT, 'src', 'data', 'games.yaml');
 const GAME_ID = 'example-game';
@@ -60,7 +60,7 @@ test('add example game then remove it', async () => {
 
   runUpdateGame();
 
-  assert.ok(fs.existsSync(gameDir()), 'public/play/example-game/ should exist');
+  assert.ok(fs.existsSync(gameDir()), 'play/example-game/ should exist');
   assert.ok(
     fs.existsSync(path.join(gameDir(), 'index.html')),
     'index.html should exist in game dir'
@@ -77,7 +77,7 @@ test('add example game then remove it', async () => {
 
   runRemoveGame();
 
-  assert.ok(!fs.existsSync(gameDir()), 'public/play/example-game/ should be removed');
+  assert.ok(!fs.existsSync(gameDir()), 'play/example-game/ should be removed');
   assert.ok(!fs.existsSync(thumbPath), 'thumbnail should be removed');
 
   const metaAfterRemove = readMetadata();

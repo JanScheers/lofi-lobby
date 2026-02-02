@@ -3,7 +3,7 @@
 /**
  * remove-game.mjs
  *
- * Removes a game from the portfolio: deletes extracted files in public/play/,
+ * Removes a game from the portfolio: deletes extracted files in play/,
  * the thumbnail, and the metadata entry. The original zip you used with
  * add-game is never touched.
  *
@@ -23,7 +23,7 @@ import yaml from 'yaml';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
-const GAMES_DIR = path.join(ROOT_DIR, 'public', 'play');
+const GAMES_DIR = path.join(ROOT_DIR, 'play');
 const THUMBNAILS_DIR = path.join(ROOT_DIR, 'public', 'images', 'games');
 const METADATA_FILE = path.join(ROOT_DIR, 'src', 'data', 'games.yaml');
 

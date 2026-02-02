@@ -41,7 +41,7 @@ npm run preview  # Preview production build
 
 3. **Thumbnail:** The script looks for an image inside the zip (e.g. `thumbnail.png`, `screenshot.jpg`, `cover.png`, or any `.png`/`.jpg`/`.webp`/`.gif`) and copies it to `public/images/games/<game-id>.<ext>`. Root-level images and filenames containing “thumbnail”, “screenshot”, “cover”, “banner”, “logo”, etc. are preferred. If none is found, add a 16:9 image manually at `public/images/games/<game-id>.png`.
 
-4. **Build and deploy:** Run `npm run build`, then deploy `dist/`. The build does **not** copy game files into `dist/`; instead `dist/play` is a symlink to `public/play`. When serving from `dist/` (e.g. `npm run preview` or a host that follows symlinks), keep `public/play` next to `dist/` so the symlink resolves. Otherwise serve `/play/` from `public/play/` on your host.
+4. **Build and deploy:** Run `npm run build`, then deploy `dist/`. The build does **not** copy game files into `dist/`; instead `dist/play` is a symlink to the project-root `play/` folder. When serving from `dist/` (e.g. `npm run preview` or a host that follows symlinks), keep `play/` next to `dist/` so the symlink resolves. Otherwise serve `/play/` from the project’s `play/` folder on your host.
 
 **Optional flags:**
 
@@ -65,7 +65,7 @@ npm run add-game -- my-game ./my-game.zip --dry-run
 
 ### Removing a game
 
-Removes the game from the portfolio: deletes the extracted files in `public/play/<game-id>/`, the thumbnail, and the entry in `games.yaml`. **The original zip you used with add-game is never touched.**
+Removes the game from the portfolio: deletes the extracted files in `play/<game-id>/`, the thumbnail, and the entry in `games.yaml`. **The original zip you used with add-game is never touched.**
 
 ```bash
 npm run remove-game -- <game-id> [--dry-run]
@@ -80,7 +80,7 @@ npm run remove-game -- my-game --dry-run
 
 ## Deploying with nginx
 
-If you deploy only `dist/` (no symlink or host doesn’t follow symlinks), serve the lobby from `dist/` and `/play/` from `public/play/` using nginx:
+If you deploy only `dist/` (no symlink or host doesn’t follow symlinks), serve the lobby from `dist/` and `/play/` from the project's `play/` folder using nginx:
 
 ```nginx
 server {
@@ -92,14 +92,14 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # Serve games from public/play (not from dist)
+    # Serve games from play/ (not from dist)
     location /play/ {
-        alias /var/www/lofi-lobby/public/play/;
+        alias /var/www/lofi-lobby/play/;
     }
 }
 ```
 
-Replace `/var/www/lofi-lobby` with the path to your project on the server. After `npm run build`, deploy `dist/` and `public/play/`; thumbnails are already in `dist/images/` from the build.
+Replace `/var/www/lofi-lobby` with the path to your project on the server. After `npm run build`, deploy `dist/` and `play/`; thumbnails are already in `dist/images/` from the build.
 
 ## Ren'Py SDK (optional)
 
@@ -129,14 +129,14 @@ INSTALL_RENPY=1 npm install
 
 When the SDK is installed, `npm run test` runs additional tests that verify the included "The Question" example game is present and (if Renpyweb is installed) can be built for web. These tests are skipped when the SDK is not installed.
 
-**Zip structure:** Any zip is accepted. The script unpacks to `public/play/<game-id>/`. If the zip has a single top-level folder, its contents are flattened into that directory. You choose which root-level HTML file is the game entry when prompted.
+**Zip structure:** Any zip is accepted. The script unpacks to `play/<game-id>/`. If the zip has a single top-level folder, its contents are flattened into that directory. You choose which root-level HTML file is the game entry when prompted.
 
 ## Project Structure
 
 ```
 lofi-lobby/
+├── play/<id>/           # Extracted web builds (gitignored)
 ├── public/
-│   ├── play/<id>/       # Extracted web builds (gitignored)
 │   └── images/games/    # Game thumbnails
 ├── vendor/
 │   └── renpy/          # Ren'Py SDK (optional, gitignored; npm run install:renpy)
