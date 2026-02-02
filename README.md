@@ -41,7 +41,7 @@ npm run preview  # Preview production build
 
 3. **Thumbnail:** The script looks for an image inside the zip (e.g. `thumbnail.png`, `screenshot.jpg`, `cover.png`, or any `.png`/`.jpg`/`.webp`/`.gif`) and copies it to `public/images/games/<game-id>.<ext>`. Root-level images and filenames containing “thumbnail”, “screenshot”, “cover”, “banner”, “logo”, etc. are preferred. If none is found, add a 16:9 image manually at `public/images/games/<game-id>.png`.
 
-4. **Build and deploy:** Run `npm run build`, then deploy `dist/`.
+4. **Build and deploy:** Run `npm run build`, then deploy `dist/`. The build does **not** copy game files into `dist/`; instead `dist/play` is a symlink to `public/play`. When serving from `dist/` (e.g. `npm run preview` or a host that follows symlinks), keep `public/play` next to `dist/` so the symlink resolves. Otherwise serve `/play/` from `public/play/` on your host.
 
 **Optional flags:**
 
@@ -77,6 +77,29 @@ Examples:
 npm run remove-game -- my-game
 npm run remove-game -- my-game --dry-run
 ```
+
+## Deploying with nginx
+
+If you deploy only `dist/` (no symlink or host doesn’t follow symlinks), serve the lobby from `dist/` and `/play/` from `public/play/` using nginx:
+
+```nginx
+server {
+    listen 80;
+    server_name example.com;
+    root /var/www/lofi-lobby/dist;   # lobby (HTML, assets, thumbnails)
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Serve games from public/play (not from dist)
+    location /play/ {
+        alias /var/www/lofi-lobby/public/play/;
+    }
+}
+```
+
+Replace `/var/www/lofi-lobby` with the path to your project on the server. After `npm run build`, deploy `dist/` and `public/play/`; thumbnails are already in `dist/images/` from the build.
 
 ## Ren'Py SDK (optional)
 
