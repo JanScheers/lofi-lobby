@@ -20,8 +20,7 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
-import AdmZip from 'adm-zip';
+import { execSync, spawnSync } from 'child_process';
 import readline from 'readline';
 import yaml from 'yaml';
 import {
@@ -153,12 +152,10 @@ function dirWouldYieldRenpyDistribution(dirPath, unpackStructure) {
  * Check if zip would yield a Ren'Py project after extraction (for dry-run message).
  * Looks for game/*.rpy or single top-level dir containing game/*.rpy.
  */
-function zipWouldYieldRenpyProject(zip, unpackStructure) {
-  const entries = zip.getEntries();
+function zipWouldYieldRenpyProject(entryNames, unpackStructure) {
   const hasGameRpy = (prefix) => {
     const prefixSlash = prefix ? `${prefix}/` : '';
-    return entries.some((e) => {
-      const name = e.entryName;
+    return entryNames.some((name) => {
       if (!name.startsWith(prefixSlash)) return false;
       const rest = prefix ? name.slice(prefixSlash.length) : name;
       return rest.startsWith('game/') && rest.toLowerCase().endsWith('.rpy');
@@ -169,8 +166,8 @@ function zipWouldYieldRenpyProject(zip, unpackStructure) {
   }
   if (hasGameRpy('')) return true;
   const topLevel = new Set();
-  for (const e of entries) {
-    const parts = e.entryName.split('/').filter(Boolean);
+  for (const name of entryNames) {
+    const parts = name.split('/').filter(Boolean);
     if (parts.length >= 1) topLevel.add(parts[0]);
   }
   if (topLevel.size !== 1) return false;
@@ -181,12 +178,10 @@ function zipWouldYieldRenpyProject(zip, unpackStructure) {
 /**
  * Check if zip would yield a Ren'Py PC distribution (game/*.rpyc, no .rpy) after extraction.
  */
-function zipWouldYieldRenpyDistribution(zip, unpackStructure) {
-  const entries = zip.getEntries();
+function zipWouldYieldRenpyDistribution(entryNames, unpackStructure) {
   const hasGameRpyc = (prefix) => {
     const prefixSlash = prefix ? `${prefix}/` : '';
-    return entries.some((e) => {
-      const name = e.entryName;
+    return entryNames.some((name) => {
       if (!name.startsWith(prefixSlash)) return false;
       const rest = prefix ? name.slice(prefixSlash.length) : name;
       return rest.startsWith('game/') && rest.toLowerCase().endsWith('.rpyc');
@@ -194,8 +189,7 @@ function zipWouldYieldRenpyDistribution(zip, unpackStructure) {
   };
   const hasGameRpy = (prefix) => {
     const prefixSlash = prefix ? `${prefix}/` : '';
-    return entries.some((e) => {
-      const name = e.entryName;
+    return entryNames.some((name) => {
       if (!name.startsWith(prefixSlash)) return false;
       const rest = prefix ? name.slice(prefixSlash.length) : name;
       return rest.startsWith('game/') && rest.toLowerCase().endsWith('.rpy');
@@ -207,8 +201,8 @@ function zipWouldYieldRenpyDistribution(zip, unpackStructure) {
   }
   if (check('')) return true;
   const topLevel = new Set();
-  for (const e of entries) {
-    const parts = e.entryName.split('/').filter(Boolean);
+  for (const name of entryNames) {
+    const parts = name.split('/').filter(Boolean);
     if (parts.length >= 1) topLevel.add(parts[0]);
   }
   if (topLevel.size !== 1) return false;
@@ -274,14 +268,34 @@ function copyDirContents(src, dest) {
 }
 
 /**
+ * List entry names in a zip file using native unzip (zipinfo mode, one name per line).
+ * @param {string} zipPath - Absolute path to the zip file
+ * @returns {string[]} Entry path strings
+ */
+function getZipEntryNames(zipPath) {
+  try {
+    const result = spawnSync('unzip', ['-Z', '-1', zipPath], { encoding: 'utf-8' });
+    if (result.status !== 0) {
+      throw new Error(result.stderr || result.error?.message || `unzip exited ${result.status}`);
+    }
+    const text = result.stdout ?? '';
+    return text.split('\n').map((s) => s.trim()).filter(Boolean);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      error('unzip command not found; required for zip extraction. Install unzip (macOS/Linux) or use WSL on Windows.');
+    }
+    error(`unzip failed: ${err.message}`);
+  }
+}
+
+/**
  * Determine how to unpack the zip: flatten from a single root folder, or extract all.
  * Accepts any zip structure.
  */
-function getUnpackStructure(zip) {
-  const entries = zip.getEntries();
+function getUnpackStructureFromEntryNames(entryNames) {
   const topLevel = new Set();
-  for (const e of entries) {
-    const parts = e.entryName.split('/').filter(Boolean);
+  for (const name of entryNames) {
+    const parts = name.split('/').filter(Boolean);
     if (parts.length > 0) {
       topLevel.add(parts[0]);
     }
@@ -437,6 +451,7 @@ async function main() {
 
   let unpackStructure;
   let sourceDirForCopy = null; // set when isSourceDir: the folder we copy from
+  let zipEntryNames = null; // set when source is zip: list of entry names for structure/dry-run
 
   if (isSourceDir) {
     unpackStructure = getUnpackStructureFromDir(absoluteSourcePath);
@@ -445,13 +460,8 @@ async function main() {
       : absoluteSourcePath;
     log(`Directory structure: ${unpackStructure.flatten ? `Single folder "${unpackStructure.rootFolder}" (will flatten)` : 'Root level'}`, 'green');
   } else {
-    let zip;
-    try {
-      zip = new AdmZip(absoluteSourcePath);
-    } catch (err) {
-      error(`Failed to open zip file: ${err.message}`);
-    }
-    unpackStructure = getUnpackStructure(zip);
+    zipEntryNames = getZipEntryNames(absoluteSourcePath);
+    unpackStructure = getUnpackStructureFromEntryNames(zipEntryNames);
     log(`Zip structure: ${unpackStructure.flatten ? `Single folder "${unpackStructure.rootFolder}" (will flatten)` : 'Root level'}`, 'green');
   }
 
@@ -501,10 +511,10 @@ async function main() {
         log('  - Detect Ren\'Py PC distribution (compiled); would error: need project source (.rpy) or pre-built web zip');
       }
     } else {
-      log(`  - Extract zip (${new AdmZip(absoluteSourcePath).getEntries().length} entries)`);
-      if (zipWouldYieldRenpyProject(new AdmZip(absoluteSourcePath), unpackStructure)) {
+      log(`  - Extract zip (${zipEntryNames.length} entries)`);
+      if (zipWouldYieldRenpyProject(zipEntryNames, unpackStructure)) {
         log('  - Detect Ren\'Py project; would build to web (requires SDK + Renpyweb) then use web output as game content');
-      } else if (zipWouldYieldRenpyDistribution(new AdmZip(absoluteSourcePath), unpackStructure)) {
+      } else if (zipWouldYieldRenpyDistribution(zipEntryNames, unpackStructure)) {
         log('  - Detect Ren\'Py PC distribution (compiled); would error: need project source (.rpy) or pre-built web zip');
       }
     }
@@ -532,26 +542,21 @@ async function main() {
       error(`Failed to copy directory: ${err.message}`);
     }
   } else {
-    const zip = new AdmZip(absoluteSourcePath);
     try {
       if (unpackStructure.flatten && unpackStructure.rootFolder) {
-        const entries = zip.getEntries();
-        for (const entry of entries) {
-          if (entry.entryName.startsWith(`${unpackStructure.rootFolder}/`)) {
-            const relativePath = entry.entryName.slice(unpackStructure.rootFolder.length + 1);
-            if (relativePath) {
-              const targetPath = path.join(gameDir, relativePath);
-              if (entry.isDirectory) {
-                fs.mkdirSync(targetPath, { recursive: true });
-              } else {
-                fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-                fs.writeFileSync(targetPath, entry.getData());
-              }
-            }
-          }
+        const tempExtract = path.join(os.tmpdir(), `add-game-extract-${Date.now()}`);
+        fs.mkdirSync(tempExtract, { recursive: true });
+        try {
+          const unzipResult = spawnSync('unzip', ['-o', '-q', absoluteSourcePath, '-d', tempExtract], { encoding: 'utf-8', stdio: 'inherit' });
+          if (unzipResult.status !== 0) throw new Error(unzipResult.stderr || `unzip exited ${unzipResult.status}`);
+          const rootFolderPath = path.join(tempExtract, unpackStructure.rootFolder);
+          copyDirContents(rootFolderPath, gameDir);
+        } finally {
+          if (fs.existsSync(tempExtract)) fs.rmSync(tempExtract, { recursive: true });
         }
       } else {
-        zip.extractAllTo(gameDir, true);
+        const unzipResult = spawnSync('unzip', ['-o', '-q', absoluteSourcePath, '-d', gameDir], { encoding: 'utf-8', stdio: 'inherit' });
+        if (unzipResult.status !== 0) throw new Error(unzipResult.stderr || `unzip exited ${unzipResult.status}`);
       }
       log(`Extracted to: ${gameDir}`, 'green');
     } catch (err) {
@@ -620,8 +625,8 @@ async function main() {
       if (webStat.isDirectory()) {
         copyDirContents(webPath, tmpDir);
       } else if (webEntry.toLowerCase().endsWith('.zip')) {
-        const webZip = new AdmZip(webPath);
-        webZip.extractAllTo(tmpDir, true);
+        const unzipResult = spawnSync('unzip', ['-o', '-q', webPath, '-d', tmpDir], { encoding: 'utf-8', stdio: 'inherit' });
+        if (unzipResult.status !== 0) throw new Error(unzipResult.stderr || `unzip exited ${unzipResult.status}`);
       } else {
         if (fs.existsSync(gameDir)) fs.rmSync(gameDir, { recursive: true });
         fs.rmSync(tmpDir, { recursive: true });
