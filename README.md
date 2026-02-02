@@ -99,7 +99,7 @@ server {
 }
 ```
 
-Replace `/var/www/lofi-lobby` with the path to your project on the server. After `npm run build`, deploy `dist/` and `play/`; thumbnails are already in `dist/images/` from the build.
+Replace `/var/www/lofi-lobby` with the path to your project on the server. **Use the same path for both `root` and `alias`** (e.g. if you use `/var/www/html/lofi-lobby`, set `root` to that path plus `/dist` and `alias` to that path plus `/play/`), or `/play/` will serve from the wrong directory and game pages can be empty. After `npm run build`, deploy `dist/` and `play/`; thumbnails are already in `dist/images/` from the build.
 
 ## Ren'Py SDK (optional)
 
